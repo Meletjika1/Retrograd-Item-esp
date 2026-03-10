@@ -880,15 +880,15 @@ local function removeEntry(espTable, address)
 end
 
 local function createEntry(espTable, part, name, address, color)
-    local label = Drawing.new("Text")
-    label.Color = color
-    label.Outline = true
-    label.Center = true
-    label.Visible = false
-    label.Font = Drawing.Fonts.SystemBold
-    label.Size = 14
-    label.Text = getBaseName(name)
+    local baseName = getBaseName(name)
+    local drawColor = color
+    if isGunName(baseName) then
+        drawColor = Color3.fromRGB(255, 255, 0)
+    end
 
+    local label = Drawing.new("Text")
+    label.Color = drawColor
+    -- rest unchanged
     local box = Drawing.new("Square")
     box.Color = color
     box.Filled = false
@@ -1159,3 +1159,4 @@ end
         rebuildEntryList()
 
     end
+
