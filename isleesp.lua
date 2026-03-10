@@ -848,6 +848,7 @@ local entityEsp = {}
 local enabledItemTypes = {}
 local entityEspEnabled = false
 local espMaxDistance = 500
+local ESP_DEFAULT_DISTANCE = 500
 
 -- Dynamically built list of known item type names (no # suffix)
 local knownItemTypes = {}
@@ -978,7 +979,8 @@ local function updateEspTable(espTable, folder, color, enabled, useFilter)
             local dy = part.Position.Y - rootPart.Position.Y
             local dz = part.Position.Z - rootPart.Position.Z
             local dist = math.sqrt(dx*dx + dy*dy + dz*dz)
-            if espMaxDistance ~= nil and dist > espMaxDistance then
+     local maxDist = espMaxDistance or ESP_DEFAULT_DISTANCE
+            if dist > maxDist then
                 withinRange = false
             end
         end
