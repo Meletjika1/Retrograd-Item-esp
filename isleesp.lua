@@ -1107,56 +1107,59 @@ while true do
     end
 
     -- process a small batch of ESP entries per frame
+    -- process all ESP entries but skip WorldToScreen for out of range
     if #allEspEntries > 0 then
-        for i = 1, BATCH_SIZE do
-            batchIndex = batchIndex + 1
-            if batchIndex > #allEspEntries then
-                batchIndex = 1
+        local maxDist = espMaxDistance or ESP_DEFAULT_DISTANCE
+        local maxDistSq = maxDist * maxDist
+        local rootPos = rootPart and rootPart.Position
+
+        for i = 1, #allEspEntries do
+            local entry = allEspEntries[i]
+            local esp = entry.esp
+            local type_ = entry.type_
+
+            local enabled = false
+            if type_ == "gun" then
+                enabled = gunEspEnabled
+            elseif type_ == "item" then
+                enabled = itemEspEnabled and (enabledItemTypes[esp.baseName] == true)
+            elseif type_ == "entity" then
+                enabled = entityEspEnabled
             end
 
-            local entry = allEspEntries[batchIndex]
-            if entry then
-                local esp = entry.esp
-                local type_ = entry.type_
+            if enabled and esp.part ~= nil and esp.part.Position ~= nil then
+                local partPos = esp.part.Position
+                local withinRange = true
 
-                local enabled = false
-                if type_ == "gun" then enabled = gunEspEnabled
-                elseif type_ == "item" then enabled = itemEspEnabled and (enabledItemTypes[esp.baseName] == true)
-                elseif type_ == "entity" then enabled = entityEspEnabled
+                if rootPos ~= nil then
+                    local dx = partPos.X - rootPos.X
+                    local dy = partPos.Y - rootPos.Y
+                    local dz = partPos.Z - rootPos.Z
+                    local distSq = dx*dx + dy*dy + dz*dz
+                    if distSq > maxDistSq then
+                        withinRange = false
+                    end
                 end
 
-                if enabled and esp.part ~= nil and esp.part.Position ~= nil then
-                    local withinRange = true
-                    if rootPart ~= nil and rootPart.Position ~= nil then
-                        local dx = esp.part.Position.X - rootPart.Position.X
-                        local dy = esp.part.Position.Y - rootPart.Position.Y
-                        local dz = esp.part.Position.Z - rootPart.Position.Z
-                        local dist = math.sqrt(dx*dx + dy*dy + dz*dz)
-                        local maxDist = espMaxDistance or ESP_DEFAULT_DISTANCE
-                        if dist > maxDist then
-                            withinRange = false
-                        end
-                    end
-                    if withinRange then
-                        local screenPos, onScreen = WorldToScreen(esp.part.Position)
-                        if onScreen then
-                            esp.label.Position = Vector2.new(screenPos.X, screenPos.Y - 20)
-                            esp.label.Visible = true
-                            esp.box.Position = Vector2.new(screenPos.X - 15, screenPos.Y - 15)
-                            esp.box.Size = Vector2.new(30, 30)
-                            esp.box.Visible = true
-                        else
-                            esp.label.Visible = false
-                            esp.box.Visible = false
-                        end
+                if withinRange then
+                    local screenPos, onScreen = WorldToScreen(partPos)
+                    if onScreen then
+                        esp.label.Position = Vector2.new(screenPos.X, screenPos.Y - 20)
+                        esp.label.Visible = true
+                        esp.box.Position = Vector2.new(screenPos.X - 15, screenPos.Y - 15)
+                        esp.box.Size = Vector2.new(30, 30)
+                        esp.box.Visible = true
                     else
                         esp.label.Visible = false
                         esp.box.Visible = false
                     end
                 else
-                    if esp.label then esp.label.Visible = false end
-                    if esp.box then esp.box.Visible = false end
+                    esp.label.Visible = false
+                    esp.box.Visible = false
                 end
+            else
+                if esp.label then esp.label.Visible = false end
+                if esp.box then esp.box.Visible = false end
             end
         end
     end
