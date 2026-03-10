@@ -1,4 +1,4 @@
--- ===========================
+--- ===========================
 -- UI LIBRARY (inline)
 -- ===========================
 UILib = {
@@ -845,13 +845,11 @@ local gunEsp = {}
 local itemEsp = {}
 local entityEsp = {}
 
--- Tracks which item types the user wants shown
 local enabledItemTypes = {}
 local entityEspEnabled = false
 local espMaxDistance = 500
 local ESP_DEFAULT_DISTANCE = 500
 
--- Dynamically built list of known item type names (no # suffix)
 local knownItemTypes = {}
 
 local function getBaseName(name)
@@ -910,7 +908,6 @@ local function updateEspTable(espTable, folder, color, enabled, useFilter)
 
     local children = folder:GetChildren()
 
--- Discover new item types for the dropdown
     local dropdownNeedsUpdate = false
     for _, item in ipairs(children) do
         local baseName = getBaseName(item.Name)
@@ -924,20 +921,18 @@ local function updateEspTable(espTable, folder, color, enabled, useFilter)
             return a:lower() < b:lower()
         end)
     end
-    -- Build current address set
+
     local currentAddresses = {}
     for _, item in ipairs(children) do
         currentAddresses[item.Address] = true
     end
 
-    -- Remove stale entries
     for address, _ in pairs(espTable) do
         if not currentAddresses[address] then
             removeEntry(espTable, address)
         end
     end
 
--- Add new entries
     for _, item in ipairs(children) do
         local addr = item.Address
         if not espTable[addr] then
@@ -958,48 +953,6 @@ local function updateEspTable(espTable, folder, color, enabled, useFilter)
                 end
                 createEntry(espTable, part, item.Name, addr, color)
             end
-        end
-    end
-
--- Update positions
-local character = Players.LocalPlayer and Players.LocalPlayer.Character
-    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-
-    for address, esp in pairs(espTable) do
-        local part = esp.part
-        local typeEnabled = true
-        if useFilter then
-            typeEnabled = enabledItemTypes[esp.baseName] == true
-        end
-
-     local withinRange = true
-        if rootPart ~= nil and part ~= nil and part.Position ~= nil and rootPart.Position ~= nil then
-            local dx = part.Position.X - rootPart.Position.X
-            local dy = part.Position.Y - rootPart.Position.Y
-            local dz = part.Position.Z - rootPart.Position.Z
-            local dist = math.sqrt(dx*dx + dy*dy + dz*dz)
-     local maxDist = espMaxDistance or ESP_DEFAULT_DISTANCE
-            if dist > maxDist then
-                withinRange = false
-            end
-        end
-
-        if part ~= nil and part.Position ~= nil and typeEnabled and withinRange then
-            local screenPos, onScreen = WorldToScreen(part.Position)
-            if onScreen then
-                esp.label.Position = Vector2.new(screenPos.X, screenPos.Y - 20)
-                esp.label.Visible = true
-                local boxSize = Vector2.new(30, 30)
-                esp.box.Position = Vector2.new(screenPos.X - boxSize.X / 2, screenPos.Y - boxSize.Y / 2)
-                esp.box.Size = boxSize
-                esp.box.Visible = true
-            else
-                esp.label.Visible = false
-                esp.box.Visible = false
-            end
-        else
-            esp.label.Visible = false
-            esp.box.Visible = false
         end
     end
 
@@ -1034,15 +987,12 @@ espSection:Toggle("Entity ESP", false, function(newValue)
     if not newValue then clearEspTable(entityEsp) end
 end)
 
--- Dropdown for selecting which item types to show
--- Starts empty, gets populated as items are discovered in the world
 local itemFilterDropdown = filterSection:Dropdown(
     "Shown item types",
     {},
     {},
-    true, -- multi-select
+    true,
     function(newValue)
-        -- Rebuild enabledItemTypes from selection
         enabledItemTypes = {}
         for _, name in ipairs(newValue) do
             enabledItemTypes[name] = true
@@ -1050,7 +1000,6 @@ local itemFilterDropdown = filterSection:Dropdown(
     end
 )
 
--- Button to select all known item types at once
 filterSection:Button("Select All", function()
     local all = {}
     for _, name in ipairs(knownItemTypes) do
@@ -1060,7 +1009,6 @@ filterSection:Button("Select All", function()
     itemFilterDropdown:Set(all)
 end)
 
--- Button to clear all selections
 filterSection:Button("Clear All", function()
     enabledItemTypes = {}
     itemFilterDropdown:Set({})
@@ -1072,7 +1020,6 @@ UILib:Notification("Isle Script loaded! Press F1 to toggle menu.", 6)
 -- ===========================
 -- MAIN LOOP
 -- ===========================
-local espTick = 0
 local cleanupTick = 0
 local allEspEntries = {}
 local batchIndex = 0
@@ -1108,61 +1055,68 @@ while true do
         rootPart = character and character:FindFirstChild("HumanoidRootPart")
     end
 
-    -- process a small batch of ESP entries per frame
-    -- process all ESP entries but skip WorldToScreen for out of range
-    if #allEspEntries > 0 then
+    -- process batch of ESP entries
+    local now = os.clock()
+    if #allEspEntries > 0 and now - lastEspTime >= ESP_UPDATE_INTERVAL then
+        lastEspTime = now
         local maxDist = espMaxDistance or ESP_DEFAULT_DISTANCE
         local maxDistSq = maxDist * maxDist
         local rootPos = rootPart and rootPart.Position
+        local processed = 0
 
-        for i = 1, #allEspEntries do
-            local entry = allEspEntries[i]
-            local esp = entry.esp
-            local type_ = entry.type_
-
-            local enabled = false
-            if type_ == "gun" then
-                enabled = gunEspEnabled
-            elseif type_ == "item" then
-                enabled = itemEspEnabled and (enabledItemTypes[esp.baseName] == true)
-            elseif type_ == "entity" then
-                enabled = entityEspEnabled
+        while processed < BATCH_SIZE do
+            batchIndex = batchIndex + 1
+            if batchIndex > #allEspEntries then
+                batchIndex = 1
             end
 
-            if enabled and esp.part ~= nil and esp.part.Position ~= nil then
-                local partPos = esp.part.Position
-                local withinRange = true
+            local entry = allEspEntries[batchIndex]
+            if entry then
+                local esp = entry.esp
+                local type_ = entry.type_
 
-                if rootPos ~= nil then
-                    local dx = partPos.X - rootPos.X
-                    local dy = partPos.Y - rootPos.Y
-                    local dz = partPos.Z - rootPos.Z
-                    local distSq = dx*dx + dy*dy + dz*dz
-                    if distSq > maxDistSq then
-                        withinRange = false
-                    end
+                local enabled = false
+                if type_ == "gun" then
+                    enabled = gunEspEnabled
+                elseif type_ == "item" then
+                    enabled = itemEspEnabled and (enabledItemTypes[esp.baseName] == true)
+                elseif type_ == "entity" then
+                    enabled = entityEspEnabled
                 end
 
-                if withinRange then
-                    local screenPos, onScreen = WorldToScreen(partPos)
-                    if onScreen then
-                        esp.label.Position = Vector2.new(screenPos.X, screenPos.Y - 20)
-                        esp.label.Visible = true
-                        esp.box.Position = Vector2.new(screenPos.X - 15, screenPos.Y - 15)
-                        esp.box.Size = Vector2.new(30, 30)
-                        esp.box.Visible = true
+                if enabled and esp.part ~= nil and esp.part.Position ~= nil then
+                    local partPos = esp.part.Position
+                    local withinRange = true
+                    if rootPos ~= nil then
+                        local dx = partPos.X - rootPos.X
+                        local dy = partPos.Y - rootPos.Y
+                        local dz = partPos.Z - rootPos.Z
+                        if dx*dx + dy*dy + dz*dz > maxDistSq then
+                            withinRange = false
+                        end
+                    end
+                    if withinRange then
+                        local screenPos, onScreen = WorldToScreen(partPos)
+                        if onScreen then
+                            esp.label.Position = Vector2.new(screenPos.X, screenPos.Y - 20)
+                            esp.label.Visible = true
+                            esp.box.Position = Vector2.new(screenPos.X - 15, screenPos.Y - 15)
+                            esp.box.Size = Vector2.new(30, 30)
+                            esp.box.Visible = true
+                        else
+                            esp.label.Visible = false
+                            esp.box.Visible = false
+                        end
                     else
                         esp.label.Visible = false
                         esp.box.Visible = false
                     end
                 else
-                    esp.label.Visible = false
-                    esp.box.Visible = false
+                    if esp.label then esp.label.Visible = false end
+                    if esp.box then esp.box.Visible = false end
                 end
-            else
-                if esp.label then esp.label.Visible = false end
-                if esp.box then esp.box.Visible = false end
             end
+            processed = processed + 1
         end
     end
 
@@ -1188,9 +1142,3 @@ while true do
 
     task.wait(0.016)
 end
-    task.wait(0.016)
-end
-
-    if needsUpdate then
-        itemFilterDropdown:UpdateChoices(knownItemTypes)
-    end
