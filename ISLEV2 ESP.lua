@@ -853,6 +853,14 @@ local ESP_DEFAULT_DISTANCE = 500
 local knownItemTypes = {}
 
 local function getBaseName(name)
+    local function isGunName(name)
+    local lower = name:lower()
+    return lower:find("pistol") or lower:find("shotgun") or lower:find("rifle") or
+           lower:find("lancer") or lower:find("machine") or lower:find("sniper") or
+           lower:find("carbine") or lower:find("revolver") or lower:find("smg") or
+           lower:find("launcher") or lower:find("cannon") or lower:find("blaster") or
+           lower:find("gun") or lower:find("bow") or lower:find("crossbow")
+end
     return name:match("^(.-)#") or name
 end
 
@@ -1149,4 +1157,5 @@ end
             itemFilterDropdown:UpdateChoices(knownItemTypes)
         end
         rebuildEntryList()
+
     end
