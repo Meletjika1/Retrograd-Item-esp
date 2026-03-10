@@ -972,10 +972,13 @@ local function updateEspTable(espTable, folder, color, enabled, useFilter)
             typeEnabled = enabledItemTypes[esp.baseName] == true
         end
 
-        local withinRange = true
-        if rootPart ~= nil and part ~= nil and part.Position ~= nil then
-            local dist = (part.Position - rootPart.Position).Magnitude
-            if dist > espMaxDistance then
+local withinRange = true
+        if rootPart ~= nil and part ~= nil and part.Position ~= nil and rootPart.Position ~= nil then
+            local dx = part.Position.X - rootPart.Position.X
+            local dy = part.Position.Y - rootPart.Position.Y
+            local dz = part.Position.Z - rootPart.Position.Z
+            local dist = math.sqrt(dx*dx + dy*dy + dz*dz)
+            if espMaxDistance ~= nil and dist > espMaxDistance then
                 withinRange = false
             end
         end
