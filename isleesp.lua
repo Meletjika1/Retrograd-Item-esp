@@ -904,7 +904,7 @@ local function updateEspTable(espTable, folder, color, enabled, useFilter)
 
     local children = folder:GetChildren()
 
-    -- Discover new item types for the dropdown
+-- Discover new item types for the dropdown
     local dropdownNeedsUpdate = false
     for _, item in ipairs(children) do
         local baseName = getBaseName(item.Name)
@@ -913,7 +913,11 @@ local function updateEspTable(espTable, folder, color, enabled, useFilter)
             dropdownNeedsUpdate = true
         end
     end
-
+    if dropdownNeedsUpdate then
+        table.sort(knownItemTypes, function(a, b)
+            return a:lower() < b:lower()
+        end)
+    end
     -- Build current address set
     local currentAddresses = {}
     for _, item in ipairs(children) do
