@@ -1047,7 +1047,6 @@ local rootUpdateTick = 0
 while true do
     UILib:Step()
 
-    -- update rootPart reference every 60 frames
     rootUpdateTick = rootUpdateTick + 1
     if rootUpdateTick >= 60 then
         rootUpdateTick = 0
@@ -1055,70 +1054,82 @@ while true do
         rootPart = character and character:FindFirstChild("HumanoidRootPart")
     end
 
-    -- process batch of ESP entries
-    local now = os.clock()
-    if #allEspEntries > 0 and now - lastEspTime >= ESP_UPDATE_INTERVAL then
-        lastEspTime = now
-        local maxDist = espMaxDistance or ESP_DEFAULT_DISTANCE
-        local maxDistSq = maxDist * maxDist
+    if #allEspEntries > 0 then
+        local maxDistSq = (espMaxDistance or ESP_DEFAULT_DISTANCE)^2
         local rootPos = rootPart and rootPart.Position
-        local processed = 0
 
-        while processed < BATCH_SIZE do
-            batchIndex = batchIndex + 1
-            if batchIndex > #allEspEntries then
-                batchIndex = 1
+        for i = 1, #allEspEntries do
+            local entry = allEspEntries[i]
+            local esp = entry.esp
+            local type_ = entry.type_
+
+            local enabled = false
+            if type_ == "gun" then
+                enabled = gunEspEnabled
+            elseif type_ == "item" then
+                enabled = itemEspEnabled and (enabledItemTypes[esp.baseName] == true)
+            elseif type_ == "entity" then
+                enabled = entityEspEnabled
             end
 
-            local entry = allEspEntries[batchIndex]
-            if entry then
-                local esp = entry.esp
-                local type_ = entry.type_
-
-                local enabled = false
-                if type_ == "gun" then
-                    enabled = gunEspEnabled
-                elseif type_ == "item" then
-                    enabled = itemEspEnabled and (enabledItemTypes[esp.baseName] == true)
-                elseif type_ == "entity" then
-                    enabled = entityEspEnabled
-                end
-
-                if enabled and esp.part ~= nil and esp.part.Position ~= nil then
-                    local partPos = esp.part.Position
-                    local withinRange = true
-                    if rootPos ~= nil then
-                        local dx = partPos.X - rootPos.X
-                        local dy = partPos.Y - rootPos.Y
-                        local dz = partPos.Z - rootPos.Z
-                        if dx*dx + dy*dy + dz*dz > maxDistSq then
-                            withinRange = false
-                        end
+            if not enabled then
+                esp.label.Visible = false
+                esp.box.Visible = false
+            elseif esp.part ~= nil and esp.part.Position ~= nil then
+                local partPos = esp.part.Position
+                local inRange = true
+                if rootPos ~= nil then
+                    local dx = partPos.X - rootPos.X
+                    local dy = partPos.Y - rootPos.Y
+                    local dz = partPos.Z - rootPos.Z
+                    if dx*dx + dy*dy + dz*dz > maxDistSq then
+                        inRange = false
                     end
-                    if withinRange then
-                        local screenPos, onScreen = WorldToScreen(partPos)
-                        if onScreen then
-                            esp.label.Position = Vector2.new(screenPos.X, screenPos.Y - 20)
-                            esp.label.Visible = true
-                            esp.box.Position = Vector2.new(screenPos.X - 15, screenPos.Y - 15)
-                            esp.box.Size = Vector2.new(30, 30)
-                            esp.box.Visible = true
-                        else
-                            esp.label.Visible = false
-                            esp.box.Visible = false
-                        end
+                end
+                if inRange then
+                    local screenPos, onScreen = WorldToScreen(partPos)
+                    if onScreen then
+                        esp.label.Position = Vector2.new(screenPos.X, screenPos.Y - 20)
+                        esp.label.Visible = true
+                        esp.box.Position = Vector2.new(screenPos.X - 15, screenPos.Y - 15)
+                        esp.box.Size = Vector2.new(30, 30)
+                        esp.box.Visible = true
                     else
                         esp.label.Visible = false
                         esp.box.Visible = false
                     end
                 else
-                    if esp.label then esp.label.Visible = false end
-                    if esp.box then esp.box.Visible = false end
+                    esp.label.Visible = false
+                    esp.box.Visible = false
                 end
+            else
+                esp.label.Visible = false
+                esp.box.Visible = false
             end
-            processed = processed + 1
         end
     end
+
+    cleanupTick = cleanupTick + 1
+    if cleanupTick >= 60 then
+        cleanupTick = 0
+        if gunEspEnabled then
+            updateEspTable(gunEsp, drops, Color3.fromRGB(255, 255, 0), gunEspEnabled, false)
+        end
+        local needsUpdate = false
+        if itemEspEnabled then
+            needsUpdate = updateEspTable(itemEsp, tools, Color3.fromRGB(0, 255, 128), itemEspEnabled, true)
+        end
+        if entityEspEnabled then
+            updateEspTable(entityEsp, aiHunter, Color3.fromRGB(255, 60, 60), entityEspEnabled, "entity")
+        end
+        if needsUpdate then
+            itemFilterDropdown:UpdateChoices(knownItemTypes)
+        end
+        rebuildEntryList()
+    end
+
+    task.wait(0.016)
+end
 
     -- heavy discovery/cleanup + rebuild entry list once per second
     cleanupTick = cleanupTick + 1
