@@ -390,32 +390,91 @@ do
             local dropdown = self._active_dropdown
             if dropdown then
                 local dropdownFade = 1 - (dropdown._spawned_at - (os.clock() - 0.25)) / 0.25
-                if dropdownFade < 1.1 then self:_SetOpacityStartsWith('dropdown_', clamp(dropdownFade, 0, 1)) end
+                if dropdownFade < 1.1 then
+                    self:_SetOpacityStartsWith('dropdown_', clamp(dropdownFade, 0, 1))
+                end
+
+                -- init scroll offset
+                if dropdown._scroll == nil then dropdown._scroll = 0 end
+
+                local maxVisible = 8
+                local itemHeight = self._font_size + self._padding
+                local totalChoices = #dropdown.choices
+                local maxScroll = math.max(0, totalChoices - maxVisible)
+
+                -- scroll with mouse wheel (simulate via up/down keys)
+                if self:_IsMouseWithinBounds(dropdown.position, Vector2.new(dropdown.width, maxVisible * itemHeight + self._padding * 2)) then
+                    if self:_IsKeyPressed('up') then
+                        dropdown._scroll = math.max(0, dropdown._scroll - 1)
+                    end
+                    if self:_IsKeyPressed('down') then
+                        dropdown._scroll = math.min(maxScroll, dropdown._scroll + 1)
+                    end
+                    if self:_IsKeyPressed('pageup') then
+                        dropdown._scroll = math.max(0, dropdown._scroll - maxVisible)
+                    end
+                    if self:_IsKeyPressed('pagedown') then
+                        dropdown._scroll = math.min(maxScroll, dropdown._scroll + maxVisible)
+                    end
+                end
+
                 local shouldCancel = true
                 local dropdownOrigin = dropdown.position
-                local totalHeight = self._padding
-                for i = 1, #dropdown.choices do
+                local visibleHeight = math.min(totalChoices, maxVisible) * itemHeight + self._padding * 2
+
+                -- draw background first so clipping ref is clear
+                self:_Draw('dropdown_crust', 'rect', self._theming.crust, 100, dropdownOrigin, Vector2.new(dropdown.width, visibleHeight), false)
+                self:_Draw('dropdown_body', 'rect', self._theming.surface0, 101, dropdownOrigin + Vector2.new(1, 1), Vector2.new(dropdown.width - 2, visibleHeight - 2), true)
+
+                -- scrollbar
+                if totalChoices > maxVisible then
+                    local scrollbarTrackHeight = visibleHeight - 4
+                    local scrollbarThumbHeight = math.max(20, scrollbarTrackHeight * (maxVisible / totalChoices))
+                    local scrollbarThumbY = (scrollbarTrackHeight - scrollbarThumbHeight) * (dropdown._scroll / maxScroll)
+                    local scrollbarX = dropdownOrigin.x + dropdown.width - 6
+                    self:_Draw('dropdown_scrollbar_track', 'rect', self._theming.border0, 102, Vector2.new(scrollbarX, dropdownOrigin.y + 2), Vector2.new(4, scrollbarTrackHeight), true)
+                    self:_Draw('dropdown_scrollbar_thumb', 'rect', self._theming.accent, 103, Vector2.new(scrollbarX, dropdownOrigin.y + 2 + scrollbarThumbY), Vector2.new(4, scrollbarThumbHeight), true)
+                end
+
+                -- hide choices that are outside the visible range
+                for i = 1, totalChoices do
+                    local visibleIndex = i - dropdown._scroll
                     local choice = dropdown.choices[i]
                     local choiceFoundIndex = table.find(dropdown.value, choice)
                     local labelSize = self:_GetTextBounds(choice)
-                    local choiceOrigin = Vector2.new(dropdownOrigin.x + self._padding, dropdownOrigin.y + totalHeight)
-                    local choiceSize = Vector2.new(dropdown.width, labelSize.y)
-                    local isHoveringChoice = self:_IsMouseWithinBounds(choiceOrigin, choiceSize)
-                    if isHoveringChoice and clickFrame then
-                        shouldCancel = not dropdown.multi
-                        if dropdown.multi then
-                            if choiceFoundIndex then table.remove(dropdown.value, choiceFoundIndex)
-                            else table.insert(dropdown.value, choice) end
-                        else dropdown.value = {choice} end
-                        if dropdown.callback then dropdown.callback(dropdown.value) end
+                    local choiceDrawId = 'dropdown_choice_' .. tostring(i)
+
+                    if visibleIndex >= 1 and visibleIndex <= maxVisible then
+                        local choiceY = dropdownOrigin.y + self._padding + (visibleIndex - 1) * itemHeight
+                        local choiceOrigin = Vector2.new(dropdownOrigin.x + self._padding, choiceY)
+                        local choiceSize = Vector2.new(dropdown.width - self._padding * 2, labelSize.y)
+
+                        local isHoveringChoice = self:_IsMouseWithinBounds(choiceOrigin, choiceSize)
+                        if isHoveringChoice and clickFrame then
+                            shouldCancel = not dropdown.multi
+                            if dropdown.multi then
+                                if choiceFoundIndex then
+                                    table.remove(dropdown.value, choiceFoundIndex)
+                                else
+                                    table.insert(dropdown.value, choice)
+                                end
+                            else
+                                dropdown.value = {choice}
+                            end
+                            if dropdown.callback then dropdown.callback(dropdown.value) end
+                        end
+
+                        local choiceColor = choiceFoundIndex and self._theming.accent or self._theming.subtext
+                        self:_Draw(choiceDrawId, 'text', choiceColor, 102, choiceOrigin, choice, true)
+                    else
+                        self:_Undraw(choiceDrawId)
                     end
-                    local choiceColor = choiceFoundIndex and self._theming.accent or self._theming.subtext
-                    self:_Draw('dropdown_choice_' .. tostring(i), 'text', choiceColor, 102, choiceOrigin, choice, true)
-                    totalHeight = totalHeight + labelSize.y + self._padding
                 end
-                self:_Draw('dropdown_crust', 'rect', self._theming.crust, 100, dropdownOrigin, Vector2.new(dropdown.width, totalHeight), false)
-                self:_Draw('dropdown_body', 'rect', self._theming.surface0, 101, dropdownOrigin + Vector2.new(1, 1), Vector2.new(dropdown.width - 2, totalHeight - 2), true)
-                if clickFrame and shouldCancel then self:_RemoveDropdown() end
+
+                if clickFrame and shouldCancel then
+                    self:_RemoveDropdown()
+                end
+
                 clickFrame = false
             end
             local colorpicker = self._active_colorpicker
