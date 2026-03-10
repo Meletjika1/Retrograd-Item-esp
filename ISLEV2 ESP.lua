@@ -1,4 +1,4 @@
---- ===========================
+-- ===========================
 -- UI LIBRARY (inline)
 -- ===========================
 UILib = {
@@ -441,9 +441,9 @@ do
                     local visibleIndex = i - dropdown._scroll
                     local choice = dropdown.choices[i]
                     local choiceFoundIndex = nil
-                    for fi, fv in ipairs(dropdown.value) do
-                        if fv == choice then
-                            choiceFoundIndex = fi
+                    for _ci, _cv in ipairs(dropdown.value) do
+                        if _cv == choice then
+                            choiceFoundIndex = _ci
                             break
                         end
                     end
@@ -764,7 +764,7 @@ do
                                 elseif ctxFrame then
                                     if isHoveringTextbox then
                                         self:_SpawnDropdown(self:_GetMousePos(), 60, {}, {'Copy','Clear'}, false, function(newValue)
-                                            if newValue[1] == 'Copy' then self:Notification('Copy not supported', 3)
+                                            if newValue[1] == 'Copy' then setclipboard(tostring(itemValue)) self:Notification('Text copied to clipboard', 5)
                                             elseif newValue[1] == 'Clear' then sectionItem.value = '' if sectionItem.callback then sectionItem.callback('') end end
                                         end)
                                         ctxFrame = false
@@ -857,9 +857,14 @@ local espMaxDistance = 500
 local ESP_DEFAULT_DISTANCE = 500
 
 local knownItemTypes = {}
+local knownItemTypesSet = {}
 
 local function getBaseName(name)
-    local function isGunName(name)
+    if name == nil then return "" end
+    return name:match("^(.-)#") or name
+end
+
+local function isGunName(name)
     local lower = name:lower()
     return lower:find("pistol") or lower:find("shotgun") or lower:find("rifle") or
            lower:find("lancer") or lower:find("machine") or lower:find("sniper") or
@@ -867,14 +872,9 @@ local function getBaseName(name)
            lower:find("launcher") or lower:find("cannon") or lower:find("blaster") or
            lower:find("gun") or lower:find("bow") or lower:find("crossbow")
 end
-    return name:match("^(.-)#") or name
-end
 
 local function isKnownType(baseName)
-    for _, v in ipairs(knownItemTypes) do
-        if v == baseName then return true end
-    end
-    return false
+    return knownItemTypesSet[baseName] == true
 end
 
 local function removeEntry(espTable, address)
@@ -887,21 +887,24 @@ end
 
 local function createEntry(espTable, part, name, address, color)
     local baseName = getBaseName(name)
-    local drawColor = color
-    if isGunName(baseName) then
-        drawColor = Color3.fromRGB(255, 255, 0)
-    end
+    local drawColor = isGunName(baseName) and Color3.fromRGB(255, 255, 0) or color
 
     local label = Drawing.new("Text")
     label.Color = drawColor
-    -- rest unchanged
+    label.Outline = true
+    label.Center = true
+    label.Visible = false
+    label.Font = Drawing.Fonts.SystemBold
+    label.Size = 14
+    label.Text = baseName
+
     local box = Drawing.new("Square")
-    box.Color = color
+    box.Color = drawColor
     box.Filled = false
     box.Thickness = 1
     box.Visible = false
 
-    espTable[address] = { label = label, box = box, part = part, baseName = getBaseName(name) }
+    espTable[address] = { label = label, box = box, part = part, baseName = baseName }
 end
 
 local function clearEspTable(espTable)
@@ -920,35 +923,37 @@ local function updateEspTable(espTable, folder, color, enabled, useFilter)
         return
     end
 
+    -- single GetChildren call
     local children = folder:GetChildren()
-
     local dropdownNeedsUpdate = false
+
+    -- build address set and discover new types in one pass
+    local currentAddresses = {}
     for _, item in ipairs(children) do
+        currentAddresses[item.Address] = item
         local baseName = getBaseName(item.Name)
         if not isKnownType(baseName) then
             table.insert(knownItemTypes, baseName)
+            knownItemTypesSet[baseName] = true
             dropdownNeedsUpdate = true
         end
     end
+
     if dropdownNeedsUpdate then
         table.sort(knownItemTypes, function(a, b)
             return a:lower() < b:lower()
         end)
     end
 
-    local currentAddresses = {}
-    for _, item in ipairs(children) do
-        currentAddresses[item.Address] = true
-    end
-
+    -- remove stale
     for address, _ in pairs(espTable) do
         if not currentAddresses[address] then
             removeEntry(espTable, address)
         end
     end
 
-    for _, item in ipairs(children) do
-        local addr = item.Address
+    -- add new
+    for addr, item in pairs(currentAddresses) do
         if not espTable[addr] then
             local shouldAdd = true
             if useFilter == "entity" then
@@ -1036,20 +1041,16 @@ UILib:Notification("Isle Script loaded! Press F1 to toggle menu.", 6)
 -- ===========================
 local cleanupTick = 0
 local allEspEntries = {}
-local batchIndex = 0
-local BATCH_SIZE = 20
-local ESP_UPDATE_INTERVAL = 0.05
-local lastEspTime = 0
 
 local function rebuildEntryList()
     allEspEntries = {}
-    for address, esp in pairs(gunEsp) do
+    for _, esp in pairs(gunEsp) do
         table.insert(allEspEntries, {esp = esp, type_ = "gun"})
     end
-    for address, esp in pairs(itemEsp) do
+    for _, esp in pairs(itemEsp) do
         table.insert(allEspEntries, {esp = esp, type_ = "item"})
     end
-    for address, esp in pairs(entityEsp) do
+    for _, esp in pairs(entityEsp) do
         table.insert(allEspEntries, {esp = esp, type_ = "entity"})
     end
 end
@@ -1068,47 +1069,40 @@ while true do
         rootPart = character and character:FindFirstChild("HumanoidRootPart")
     end
 
-    local rootPos = rootPart and rootPart.Position
-    local maxDistSq = (espMaxDistance or ESP_DEFAULT_DISTANCE) * (espMaxDistance or ESP_DEFAULT_DISTANCE)
+    if #allEspEntries > 0 then
+        local maxDistSq = (espMaxDistance or ESP_DEFAULT_DISTANCE) * (espMaxDistance or ESP_DEFAULT_DISTANCE)
+        local rootPos = rootPart and rootPart.Position
 
-    for i = 1, #allEspEntries do
-        local entry = allEspEntries[i]
-        local esp = entry.esp
-        local type_ = entry.type_
+        for i = 1, #allEspEntries do
+            local entry = allEspEntries[i]
+            local esp = entry.esp
+            local type_ = entry.type_
 
-        local enabled = false
-        if type_ == "gun" then
-            enabled = gunEspEnabled
-        elseif type_ == "item" then
-            enabled = itemEspEnabled and (enabledItemTypes[esp.baseName] == true)
-        elseif type_ == "entity" then
-            enabled = entityEspEnabled
-        end
+            local enabled = false
+            if type_ == "gun" then
+                enabled = gunEspEnabled
+            elseif type_ == "item" then
+                enabled = itemEspEnabled and (enabledItemTypes[esp.baseName] == true)
+            elseif type_ == "entity" then
+                enabled = entityEspEnabled
+            end
 
-        if not enabled then
-            esp.label.Visible = false
-            esp.box.Visible = false
-        else
-            local part = esp.part
-            local pos = part and part.Position
-            if pos == nil then
+            if not enabled then
                 esp.label.Visible = false
                 esp.box.Visible = false
-            else
+            elseif esp.part ~= nil and esp.part.Position ~= nil then
+                local partPos = esp.part.Position
                 local inRange = true
-                if rootPos then
-                    local dx = pos.X - rootPos.X
-                    local dy = pos.Y - rootPos.Y
-                    local dz = pos.Z - rootPos.Z
+                if rootPos ~= nil then
+                    local dx = partPos.X - rootPos.X
+                    local dy = partPos.Y - rootPos.Y
+                    local dz = partPos.Z - rootPos.Z
                     if dx*dx + dy*dy + dz*dz > maxDistSq then
                         inRange = false
                     end
                 end
-                if not inRange then
-                    esp.label.Visible = false
-                    esp.box.Visible = false
-                else
-                    local screenPos, onScreen = WorldToScreen(pos)
+                if inRange then
+                    local screenPos, onScreen = WorldToScreen(partPos)
                     if onScreen then
                         esp.label.Position = Vector2.new(screenPos.X, screenPos.Y - 20)
                         esp.label.Visible = true
@@ -1119,7 +1113,13 @@ while true do
                         esp.label.Visible = false
                         esp.box.Visible = false
                     end
+                else
+                    esp.label.Visible = false
+                    esp.box.Visible = false
                 end
+            else
+                esp.label.Visible = false
+                esp.box.Visible = false
             end
         end
     end
@@ -1145,27 +1145,3 @@ while true do
 
     task.wait(0.016)
 end
-    -- heavy discovery/cleanup + rebuild entry list once per second
-    cleanupTick = cleanupTick + 1
-    if cleanupTick >= 60 then
-        cleanupTick = 0
-        if gunEspEnabled then
-            updateEspTable(gunEsp, drops, Color3.fromRGB(255, 255, 0), gunEspEnabled, false)
-        end
-        local needsUpdate = false
-        if itemEspEnabled then
-            needsUpdate = updateEspTable(itemEsp, tools, Color3.fromRGB(0, 255, 128), itemEspEnabled, true)
-        end
-        if entityEspEnabled then
-            updateEspTable(entityEsp, aiHunter, Color3.fromRGB(255, 60, 60), entityEspEnabled, "entity")
-        end
-        if needsUpdate then
-            itemFilterDropdown:UpdateChoices(knownItemTypes)
-        end
-        rebuildEntryList()
-
-    end
-
-
-
-
