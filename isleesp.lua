@@ -1212,7 +1212,3 @@ end
     if needsUpdate then
         itemFilterDropdown:UpdateChoices(knownItemTypes)
     end
-
-    UILib:Step()
-    task.wait(0.1)
-end
