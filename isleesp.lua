@@ -139,7 +139,7 @@ do
                 table.insert(args, Color3.new(self:_Lerp(firstColor.R, tintColor.R, 0.5), self:_Lerp(firstColor.G, tintColor.G, 0.5), self:_Lerp(firstColor.B, tintColor.B, 0.5)))
             end
             local gradientDirection = args[1] local gradientOrigin = args[2] local gradientSize = args[3]
-            local numSegments = (#args - 3) - 1 local lod = 26
+            local numSegments = (#args - 3) - 1 local lod = 6
             for i = 4, #args-1 do
                 local currentColor = args[i] local nextColor = args[i+1]
                 local segmentLengthX = gradientSize.x / numSegments local segmentLengthY = gradientSize.y / numSegments
@@ -1079,9 +1079,8 @@ while true do
     UILib:Step()
 
     espTick = espTick + 1
-    if espTick >= 3 then
+    if espTick >= 10 then
         espTick = 0
-
         -- position update only (cheap)
         local character = Players.LocalPlayer and Players.LocalPlayer.Character
         local rootPart = character and character:FindFirstChild("HumanoidRootPart")
