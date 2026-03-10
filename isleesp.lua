@@ -1055,7 +1055,7 @@ UILib:Notification("Isle Script loaded! Press F1 to toggle menu.", 6)
 while true do
     updateEspTable(gunEsp, drops, Color3.fromRGB(255, 255, 0), gunEspEnabled, false)
     local needsUpdate = updateEspTable(itemEsp, tools, Color3.fromRGB(0, 255, 128), itemEspEnabled, true)
-    updateEspTable(entityEsp, aiHunter, Color3.fromRGB(255, 60, 60), entityEspEnabled, false)
+updateEspTable(entityEsp, aiHunter, Color3.fromRGB(255, 60, 60), entityEspEnabled, "entity")
 
     if needsUpdate then
         itemFilterDropdown:UpdateChoices(knownItemTypes)
