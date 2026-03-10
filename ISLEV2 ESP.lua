@@ -1093,7 +1093,8 @@ while true do
             elseif esp.part ~= nil and esp.part.Position ~= nil then
                 local partPos = esp.part.Position
                 local inRange = true
-                if rootPos ~= nil then
+                -- entities have infinite range; only items/guns use the distance slider
+                if type_ ~= "entity" and rootPos ~= nil then
                     local dx = partPos.X - rootPos.X
                     local dy = partPos.Y - rootPos.Y
                     local dz = partPos.Z - rootPos.Z
