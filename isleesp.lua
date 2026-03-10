@@ -972,7 +972,7 @@ local function updateEspTable(espTable, folder, color, enabled, useFilter)
             typeEnabled = enabledItemTypes[esp.baseName] == true
         end
 
-local withinRange = true
+     local withinRange = true
         if rootPart ~= nil and part ~= nil and part.Position ~= nil and rootPart.Position ~= nil then
             local dx = part.Position.X - rootPart.Position.X
             local dy = part.Position.Y - rootPart.Position.Y
