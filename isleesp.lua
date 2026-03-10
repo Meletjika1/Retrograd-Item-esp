@@ -938,19 +938,20 @@ local function updateEspTable(espTable, folder, color, enabled, useFilter)
     for _, item in ipairs(children) do
         local addr = item.Address
         if not espTable[addr] then
-            -- If using entity filter, skip if no Humanoid present
+            local shouldAdd = true
             if useFilter == "entity" then
                 local humanoid = item:FindFirstChildOfClass("Humanoid")
                 if humanoid == nil then
-                    goto continue
+                    shouldAdd = false
                 end
             end
-            local part = item:FindFirstChildOfClass("BasePart")
-            if part == nil then part = item:FindFirstChildWhichIsA("BasePart") end
-            if part == nil then part = item end
-            createEntry(espTable, part, item.Name, addr, color)
+            if shouldAdd then
+                local part = item:FindFirstChildOfClass("BasePart")
+                if part == nil then part = item:FindFirstChildWhichIsA("BasePart") end
+                if part == nil then part = item end
+                createEntry(espTable, part, item.Name, addr, color)
+            end
         end
-        ::continue::
     end
 
     -- Update positions
