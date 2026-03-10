@@ -1072,10 +1072,24 @@ UILib:Notification("Isle Script loaded! Press F1 to toggle menu.", 6)
 -- ===========================
 -- MAIN LOOP
 -- ===========================
+local espTick = 0
+
 while true do
-    updateEspTable(gunEsp, drops, Color3.fromRGB(255, 255, 0), gunEspEnabled, false)
-    local needsUpdate = updateEspTable(itemEsp, tools, Color3.fromRGB(0, 255, 128), itemEspEnabled, true)
-updateEspTable(entityEsp, aiHunter, Color3.fromRGB(255, 60, 60), entityEspEnabled, "entity")
+    UILib:Step()
+
+    espTick = espTick + 1
+    if espTick >= 6 then
+        espTick = 0
+        updateEspTable(gunEsp, drops, Color3.fromRGB(255, 255, 0), gunEspEnabled, false)
+        local needsUpdate = updateEspTable(itemEsp, tools, Color3.fromRGB(0, 255, 128), itemEspEnabled, true)
+        updateEspTable(entityEsp, aiHunter, Color3.fromRGB(255, 60, 60), entityEspEnabled, "entity")
+        if needsUpdate then
+            itemFilterDropdown:UpdateChoices(knownItemTypes)
+        end
+    end
+
+    task.wait(0.016)
+end
 
     if needsUpdate then
         itemFilterDropdown:UpdateChoices(knownItemTypes)
