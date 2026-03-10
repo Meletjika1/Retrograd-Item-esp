@@ -440,7 +440,13 @@ do
                 for i = 1, totalChoices do
                     local visibleIndex = i - dropdown._scroll
                     local choice = dropdown.choices[i]
-                    local choiceFoundIndex = table.find(dropdown.value, choice)
+                    local choiceFoundIndex = nil
+                    for fi, fv in ipairs(dropdown.value) do
+                        if fv == choice then
+                            choiceFoundIndex = fi
+                            break
+                        end
+                    end
                     local labelSize = self:_GetTextBounds(choice)
                     local choiceDrawId = 'dropdown_choice_' .. tostring(i)
 
@@ -1159,4 +1165,5 @@ end
         rebuildEntryList()
 
     end
+
 
