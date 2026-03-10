@@ -947,8 +947,12 @@ local function updateEspTable(espTable, folder, color, enabled, useFilter)
             end
             if shouldAdd then
                 local part = item:FindFirstChildOfClass("BasePart")
-                if part == nil then part = item:FindFirstChildWhichIsA("BasePart") end
-                if part == nil then part = item end
+                if part == nil then
+                    part = item:FindFirstChildWhichIsA("BasePart")
+                end
+                if part == nil then
+                    part = item
+                end
                 createEntry(espTable, part, item.Name, addr, color)
             end
         end
