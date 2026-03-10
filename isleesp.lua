@@ -838,12 +838,15 @@ end
 
 local drops = getFolder("Game", "Loot", "drops")
 local tools = getFolder("Map", "Ignore", "Tools")
+local aiHunter = getFolder("AIHunter")
 
 local gunEsp = {}
 local itemEsp = {}
+local entityEsp = {}
 
 -- Tracks which item types the user wants shown
 local enabledItemTypes = {}
+local entityEspEnabled = false
 
 -- Dynamically built list of known item type names (no # suffix)
 local knownItemTypes = {}
@@ -931,15 +934,23 @@ local function updateEspTable(espTable, folder, color, enabled, useFilter)
         end
     end
 
-    -- Add new entries
+-- Add new entries
     for _, item in ipairs(children) do
         local addr = item.Address
         if not espTable[addr] then
+            -- If using entity filter, skip if no Humanoid present
+            if useFilter == "entity" then
+                local humanoid = item:FindFirstChildOfClass("Humanoid")
+                if humanoid == nil then
+                    goto continue
+                end
+            end
             local part = item:FindFirstChildOfClass("BasePart")
             if part == nil then part = item:FindFirstChildWhichIsA("BasePart") end
             if part == nil then part = item end
             createEntry(espTable, part, item.Name, addr, color)
         end
+        ::continue::
     end
 
     -- Update positions
@@ -993,6 +1004,11 @@ espSection:Toggle("Item ESP", false, function(newValue)
     if not newValue then clearEspTable(itemEsp) end
 end)
 
+espSection:Toggle("Entity ESP", false, function(newValue)
+    entityEspEnabled = newValue
+    if not newValue then clearEspTable(entityEsp) end
+end)
+
 -- Dropdown for selecting which item types to show
 -- Starts empty, gets populated as items are discovered in the world
 local itemFilterDropdown = filterSection:Dropdown(
@@ -1034,8 +1050,8 @@ UILib:Notification("Isle Script loaded! Press F1 to toggle menu.", 6)
 while true do
     updateEspTable(gunEsp, drops, Color3.fromRGB(255, 255, 0), gunEspEnabled, false)
     local needsUpdate = updateEspTable(itemEsp, tools, Color3.fromRGB(0, 255, 128), itemEspEnabled, true)
+    updateEspTable(entityEsp, aiHunter, Color3.fromRGB(255, 60, 60), entityEspEnabled, false)
 
-    -- If new item types were discovered, refresh the dropdown choices
     if needsUpdate then
         itemFilterDropdown:UpdateChoices(knownItemTypes)
     end
