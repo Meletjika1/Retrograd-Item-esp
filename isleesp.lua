@@ -847,6 +847,7 @@ local entityEsp = {}
 -- Tracks which item types the user wants shown
 local enabledItemTypes = {}
 local entityEspEnabled = false
+local espMaxDistance = 500
 
 -- Dynamically built list of known item type names (no # suffix)
 local knownItemTypes = {}
@@ -958,16 +959,28 @@ local function updateEspTable(espTable, folder, color, enabled, useFilter)
         end
     end
 
-    -- Update positions
+-- Update positions
+    local players = game:GetService("Players")
+    local localPlayer = players.LocalPlayer
+    local character = localPlayer and localPlayer.Character
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+
     for address, esp in pairs(espTable) do
         local part = esp.part
-        -- If filter is active, check if this item type is enabled
         local typeEnabled = true
         if useFilter then
             typeEnabled = enabledItemTypes[esp.baseName] == true
         end
 
-        if part ~= nil and part.Position ~= nil and typeEnabled then
+        local withinRange = true
+        if rootPart ~= nil and part ~= nil and part.Position ~= nil then
+            local dist = (part.Position - rootPart.Position).Magnitude
+            if dist > espMaxDistance then
+                withinRange = false
+            end
+        end
+
+        if part ~= nil and part.Position ~= nil and typeEnabled and withinRange then
             local screenPos, onScreen = WorldToScreen(part.Position)
             if onScreen then
                 esp.label.Position = Vector2.new(screenPos.X, screenPos.Y - 20)
@@ -999,6 +1012,9 @@ local mainTab = UILib:Tab("ESP")
 local espSection = mainTab:Section("Visuals")
 local filterSection = mainTab:Section("Item Filter")
 
+espSection:Slider("Max Distance", 500, 50, 50, 2000, "m", function(newValue)
+    espMaxDistance = newValue
+end)
 espSection:Toggle("Gun ESP", false, function(newValue)
     gunEspEnabled = newValue
     if not newValue then clearEspTable(gunEsp) end
