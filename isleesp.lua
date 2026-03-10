@@ -836,6 +836,7 @@ local function getFolder(...)
     return current
 end
 
+local Players = game:GetService("Players")
 local drops = getFolder("Game", "Loot", "drops")
 local tools = getFolder("Map", "Ignore", "Tools")
 local aiHunter = getFolder("AIHunter")
@@ -961,9 +962,7 @@ local function updateEspTable(espTable, folder, color, enabled, useFilter)
     end
 
 -- Update positions
-    local players = game:GetService("Players")
-    local localPlayer = players.LocalPlayer
-    local character = localPlayer and localPlayer.Character
+local character = Players.LocalPlayer and Players.LocalPlayer.Character
     local rootPart = character and character:FindFirstChild("HumanoidRootPart")
 
     for address, esp in pairs(espTable) do
@@ -1083,5 +1082,5 @@ updateEspTable(entityEsp, aiHunter, Color3.fromRGB(255, 60, 60), entityEspEnable
     end
 
     UILib:Step()
-    task.wait(0.05)
+    task.wait(0.1)
 end
