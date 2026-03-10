@@ -764,7 +764,7 @@ do
                                 elseif ctxFrame then
                                     if isHoveringTextbox then
                                         self:_SpawnDropdown(self:_GetMousePos(), 60, {}, {'Copy','Clear'}, false, function(newValue)
-                                            if newValue[1] == 'Copy' then setclipboard(tostring(itemValue)) self:Notification('Text copied to clipboard', 5)
+                                            if newValue[1] == 'Copy' then self:Notification('Copy not supported', 3)
                                             elseif newValue[1] == 'Clear' then sectionItem.value = '' if sectionItem.callback then sectionItem.callback('') end end
                                         end)
                                         ctxFrame = false
@@ -1165,5 +1165,6 @@ end
         rebuildEntryList()
 
     end
+
 
 
