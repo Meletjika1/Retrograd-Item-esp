@@ -1077,6 +1077,8 @@ local cleanupTick = 0
 local allEspEntries = {}
 local batchIndex = 0
 local BATCH_SIZE = 20
+local ESP_UPDATE_INTERVAL = 0.05
+local lastEspTime = 0
 
 local function rebuildEntryList()
     allEspEntries = {}
