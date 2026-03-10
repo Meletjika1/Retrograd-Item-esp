@@ -1012,7 +1012,7 @@ local mainTab = UILib:Tab("ESP")
 local espSection = mainTab:Section("Visuals")
 local filterSection = mainTab:Section("Item Filter")
 
-espSection:Slider("Max Distance", 500, 50, 50, 2000, "m", function(newValue)
+espSection:Slider("Max Distance", 500, 10, 0, 2000, "m", function(newValue)
     espMaxDistance = newValue
 end)
 espSection:Toggle("Gun ESP", false, function(newValue)
