@@ -1068,40 +1068,47 @@ while true do
         rootPart = character and character:FindFirstChild("HumanoidRootPart")
     end
 
-    if #allEspEntries > 0 then
-        local maxDistSq = (espMaxDistance or ESP_DEFAULT_DISTANCE)^2
-        local rootPos = rootPart and rootPart.Position
+    local rootPos = rootPart and rootPart.Position
+    local maxDistSq = (espMaxDistance or ESP_DEFAULT_DISTANCE) * (espMaxDistance or ESP_DEFAULT_DISTANCE)
 
-        for i = 1, #allEspEntries do
-            local entry = allEspEntries[i]
-            local esp = entry.esp
-            local type_ = entry.type_
+    for i = 1, #allEspEntries do
+        local entry = allEspEntries[i]
+        local esp = entry.esp
+        local type_ = entry.type_
 
-            local enabled = false
-            if type_ == "gun" then
-                enabled = gunEspEnabled
-            elseif type_ == "item" then
-                enabled = itemEspEnabled and (enabledItemTypes[esp.baseName] == true)
-            elseif type_ == "entity" then
-                enabled = entityEspEnabled
-            end
+        local enabled = false
+        if type_ == "gun" then
+            enabled = gunEspEnabled
+        elseif type_ == "item" then
+            enabled = itemEspEnabled and (enabledItemTypes[esp.baseName] == true)
+        elseif type_ == "entity" then
+            enabled = entityEspEnabled
+        end
 
-            if not enabled then
+        if not enabled then
+            esp.label.Visible = false
+            esp.box.Visible = false
+        else
+            local part = esp.part
+            local pos = part and part.Position
+            if pos == nil then
                 esp.label.Visible = false
                 esp.box.Visible = false
-            elseif esp.part ~= nil and esp.part.Position ~= nil then
-                local partPos = esp.part.Position
+            else
                 local inRange = true
-                if rootPos ~= nil then
-                    local dx = partPos.X - rootPos.X
-                    local dy = partPos.Y - rootPos.Y
-                    local dz = partPos.Z - rootPos.Z
+                if rootPos then
+                    local dx = pos.X - rootPos.X
+                    local dy = pos.Y - rootPos.Y
+                    local dz = pos.Z - rootPos.Z
                     if dx*dx + dy*dy + dz*dz > maxDistSq then
                         inRange = false
                     end
                 end
-                if inRange then
-                    local screenPos, onScreen = WorldToScreen(partPos)
+                if not inRange then
+                    esp.label.Visible = false
+                    esp.box.Visible = false
+                else
+                    local screenPos, onScreen = WorldToScreen(pos)
                     if onScreen then
                         esp.label.Position = Vector2.new(screenPos.X, screenPos.Y - 20)
                         esp.label.Visible = true
@@ -1112,13 +1119,7 @@ while true do
                         esp.label.Visible = false
                         esp.box.Visible = false
                     end
-                else
-                    esp.label.Visible = false
-                    esp.box.Visible = false
                 end
-            else
-                esp.label.Visible = false
-                esp.box.Visible = false
             end
         end
     end
@@ -1144,7 +1145,6 @@ while true do
 
     task.wait(0.016)
 end
-
     -- heavy discovery/cleanup + rebuild entry list once per second
     cleanupTick = cleanupTick + 1
     if cleanupTick >= 60 then
@@ -1165,6 +1165,7 @@ end
         rebuildEntryList()
 
     end
+
 
 
 
