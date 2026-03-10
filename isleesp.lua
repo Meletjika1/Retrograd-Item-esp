@@ -1150,6 +1150,3 @@ end
         end
         rebuildEntryList()
     end
-
-    task.wait(0.016)
-end
