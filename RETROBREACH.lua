@@ -827,52 +827,72 @@ end
 -- ===========================
 
 -- -------------------------------------------------------
--- COLOR RULES
--- Add entries here to control what color items appear as.
--- Each entry is: { keywords = {...}, color = Color3 }
--- An item's name is checked (case-insensitive) against
--- each keyword list. First match wins.
--- Items with no match use COLOR_DEFAULT.
+-- CATEGORIES
+-- This is the main config. Each category has:
+--   label    = name shown in the UI toggle
+--   keywords = if the item name contains any of these, it belongs to this category
+--   color    = Color3 for the ESP label and box
+--   enabled  = default on/off state (gets overridden by UI toggle)
+--
+-- To ADD a new category: copy a block and add it to the list.
+-- To REMOVE a category: delete its block.
+-- To CHANGE color: edit the Color3.fromRGB line.
+-- First matching category wins. Items matching no category
+-- use the "Other" category at the bottom.
 -- -------------------------------------------------------
-local COLOR_RULES = {
+local CATEGORIES = {
     {
-        keywords = { "keycard", "card", "key card", "pass", "id" },
-        color = Color3.fromRGB(0, 120, 255),
+        label    = "Keycards",
+        keywords = { "keycard", "card", "key card", "pass", "badge", "id" },
+        color    = Color3.fromRGB(0, 120, 255),   -- blue
+        enabled  = true,
     },
     {
+        label    = "Ammo",
         keywords = { "ammo", "bullet", "magazine", "mag", "clip", "rounds", "shell", "shells" },
-        color = Color3.fromRGB(0, 220, 80),
+        color    = Color3.fromRGB(0, 220, 80),    -- green
+        enabled  = true,
     },
     {
+        label    = "Weapons",
         keywords = {
             "gun", "pistol", "rifle", "shotgun", "smg", "sniper",
             "carbine", "revolver", "machine", "lancer", "blaster",
             "launcher", "cannon", "crossbow", "bow",
         },
-        color = Color3.fromRGB(255, 220, 0),
+        color    = Color3.fromRGB(255, 220, 0),   -- yellow
+        enabled  = true,
     },
     {
+        label    = "Grenades",
         keywords = { "grenade", "frag", "flashbang", "smoke", "molotov", "throwable" },
-        color = Color3.fromRGB(160, 0, 255),
+        color    = Color3.fromRGB(160, 0, 255),   -- purple
+        enabled  = true,
+    },
+    {
+        -- catch-all: items that match no category above
+        label    = "Other",
+        keywords = {},  -- leave empty — this is always the fallback
+        color    = Color3.fromRGB(255, 255, 255), -- white
+        enabled  = true,
+        _default = true,
     },
 }
-local COLOR_DEFAULT = Color3.fromRGB(255, 255, 255)  -- white for anything unmatched
 
 -- -------------------------------------------------------
--- ITEM FILTER
--- Items whose name contains any of these keywords (case-
--- insensitive) will be IGNORED entirely by the ESP.
--- Leave empty {} to show everything.
+-- ITEM BLACKLIST
+-- Items whose name contains any of these keywords are
+-- ignored entirely regardless of category.
 -- -------------------------------------------------------
 local ITEM_BLACKLIST = {
-    -- example: "debris", "prop",
+    -- "debris", "prop",
 }
 
 -- -------------------------------------------------------
--- END OF CONFIG — no need to edit below this line
+-- END OF CONFIG
 -- -------------------------------------------------------
 
-local Players = game:GetService("Players")
+local Players   = game:GetService("Players")
 local workspace = game:GetService("Workspace")
 
 local function getFolder(...)
@@ -888,37 +908,38 @@ local function getFolder(...)
     return current
 end
 
-local itemSpawns = getFolder("ItemSpawns")
-
-local espEnabled = false
-local espMaxDistance = 500
+local itemSpawns        = getFolder("ItemSpawns")
+local espEnabled        = false
+local espMaxDistance    = 500
 local ESP_DEFAULT_DISTANCE = 500
-
--- esp table: address -> { label, box, part }
-local itemEsp = {}
-local allEspEntries = {}
+local itemEsp           = {}   -- address -> { label, box, part, categoryIndex }
+local allEspEntries     = {}
 
 -- -------------------------------------------------------
 -- Helpers
 -- -------------------------------------------------------
-local function getColor(name)
+local function getCategoryIndex(name)
     local lower = name:lower()
-    for _, rule in ipairs(COLOR_RULES) do
-        for _, kw in ipairs(rule.keywords) do
-            if lower:find(kw, 1, true) then
-                return rule.color
+    for i, cat in ipairs(CATEGORIES) do
+        if not cat._default then
+            for _, kw in ipairs(cat.keywords) do
+                if lower:find(kw, 1, true) then
+                    return i
+                end
             end
         end
     end
-    return COLOR_DEFAULT
+    -- return index of the _default category
+    for i, cat in ipairs(CATEGORIES) do
+        if cat._default then return i end
+    end
+    return 1
 end
 
 local function isBlacklisted(name)
     local lower = name:lower()
     for _, kw in ipairs(ITEM_BLACKLIST) do
-        if lower:find(kw, 1, true) then
-            return true
-        end
+        if lower:find(kw, 1, true) then return true end
     end
     return false
 end
@@ -934,49 +955,36 @@ end
 
 local function createEntry(item, address)
     local name = item.Name or "Unknown"
-    local color = getColor(name)
+    local catIdx = getCategoryIndex(name)
+    local color = CATEGORIES[catIdx].color
 
-    -- find a visible part: prefer MeshPart, fall back to any BasePart inside Model
     local part = nil
-    local className = item.ClassName
-    if className == "MeshPart" then
+    local cls  = item.ClassName
+    if cls == "MeshPart" then
         part = item
-    elseif className == "Model" then
-        -- look for MeshPart first, then any BasePart
+    elseif cls == "Model" then
         part = item:FindFirstChildWhichIsA("MeshPart")
-        if part == nil then
-            part = item:FindFirstChildWhichIsA("BasePart")
-        end
-        if part == nil and item.PrimaryPart then
-            part = item.PrimaryPart
-        end
+        if part == nil then part = item:FindFirstChildWhichIsA("BasePart") end
+        if part == nil and item.PrimaryPart then part = item.PrimaryPart end
     end
-
-    if part == nil then return end  -- nothing renderable found
+    if part == nil then return end
 
     local label = Drawing.new("Text")
-    label.Color = color
+    label.Color   = color
     label.Outline = true
-    label.Center = true
+    label.Center  = true
     label.Visible = false
-    label.Font = Drawing.Fonts.SystemBold
-    label.Size = 14
-    label.Text = name
+    label.Font    = Drawing.Fonts.SystemBold
+    label.Size    = 14
+    label.Text    = name
 
     local box = Drawing.new("Square")
-    box.Color = color
-    box.Filled = false
+    box.Color     = color
+    box.Filled    = false
     box.Thickness = 1
-    box.Visible = false
+    box.Visible   = false
 
-    itemEsp[address] = { label = label, box = box, part = part }
-end
-
-local function clearAllEsp()
-    for address, _ in pairs(itemEsp) do
-        removeEntry(address)
-    end
-    allEspEntries = {}
+    itemEsp[address] = { label = label, box = box, part = part, catIdx = catIdx }
 end
 
 local function rebuildEntryList()
@@ -991,18 +999,15 @@ local function updateEsp()
     if not espEnabled then
         for _, e in pairs(itemEsp) do
             e.label.Visible = false
-            e.box.Visible = false
+            e.box.Visible   = false
         end
         return
     end
 
     local children = itemSpawns:GetChildren()
-
-    -- build current address set, add new entries
     local currentAddresses = {}
     for _, item in ipairs(children) do
         local cls = item.ClassName
-        -- only Model and MeshPart
         if cls == "Model" or cls == "MeshPart" then
             local addr = item.Address
             currentAddresses[addr] = true
@@ -1012,7 +1017,6 @@ local function updateEsp()
         end
     end
 
-    -- remove stale entries
     for address, _ in pairs(itemEsp) do
         if not currentAddresses[address] then
             removeEntry(address)
@@ -1029,15 +1033,16 @@ UILib.title = "Item ESP"
 UILib:SetMenuTitle("Item ESP")
 UILib:CenterMenu()
 
-local mainTab = UILib:Tab("ESP")
+local mainTab    = UILib:Tab("ESP")
 local espSection = mainTab:Section("Settings")
+local catSection = mainTab:Section("Categories")
 
 espSection:Toggle("Item ESP", false, function(newValue)
     espEnabled = newValue
     if not newValue then
         for _, e in pairs(itemEsp) do
             e.label.Visible = false
-            e.box.Visible = false
+            e.box.Visible   = false
         end
     end
 end)
@@ -1046,41 +1051,47 @@ espSection:Slider("Max Distance", 500, 50, 50, 2000, "m", function(newValue)
     espMaxDistance = newValue
 end)
 
+-- Dynamically create one toggle per category
+for i, cat in ipairs(CATEGORIES) do
+    catSection:Toggle(cat.label, cat.enabled, function(newValue)
+        CATEGORIES[i].enabled = newValue
+    end)
+end
+
 UILib:CreateSettingsTab()
 UILib:Notification("Item ESP loaded! Press F1 to toggle menu.", 6)
 
 -- ===========================
 -- MAIN LOOP
 -- ===========================
-local character = Players.LocalPlayer and Players.LocalPlayer.Character
-local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+local character      = Players.LocalPlayer and Players.LocalPlayer.Character
+local rootPart       = character and character:FindFirstChild("HumanoidRootPart")
 local rootUpdateTick = 0
-local cleanupTick = 0
+local cleanupTick    = 0
 
 while true do
     UILib:Step()
 
-    -- update root part reference every 60 frames
     rootUpdateTick = rootUpdateTick + 1
     if rootUpdateTick >= 60 then
         rootUpdateTick = 0
         character = Players.LocalPlayer and Players.LocalPlayer.Character
-        rootPart = character and character:FindFirstChild("HumanoidRootPart")
+        rootPart  = character and character:FindFirstChild("HumanoidRootPart")
     end
 
-    -- ESP render every frame
     if espEnabled and #allEspEntries > 0 then
         local maxDistSq = (espMaxDistance or ESP_DEFAULT_DISTANCE) * (espMaxDistance or ESP_DEFAULT_DISTANCE)
-        local rootPos = rootPart and rootPart.Position
+        local rootPos   = rootPart and rootPart.Position
 
         for i = 1, #allEspEntries do
-            local e = allEspEntries[i]
-            local part = e.part
-            local pos = part and part.Position
+            local e        = allEspEntries[i]
+            local catEnabled = CATEGORIES[e.catIdx] and CATEGORIES[e.catIdx].enabled
+            local part     = e.part
+            local pos      = part and part.Position
 
-            if pos == nil then
+            if not catEnabled or pos == nil then
                 e.label.Visible = false
-                e.box.Visible = false
+                e.box.Visible   = false
             else
                 local inRange = true
                 if rootPos ~= nil then
@@ -1095,23 +1106,22 @@ while true do
                     local screenPos, onScreen = WorldToScreen(pos)
                     if onScreen then
                         e.label.Position = Vector2.new(screenPos.X, screenPos.Y - 20)
-                        e.label.Visible = true
-                        e.box.Position = Vector2.new(screenPos.X - 15, screenPos.Y - 15)
-                        e.box.Size = Vector2.new(30, 30)
-                        e.box.Visible = true
+                        e.label.Visible  = true
+                        e.box.Position   = Vector2.new(screenPos.X - 15, screenPos.Y - 15)
+                        e.box.Size       = Vector2.new(30, 30)
+                        e.box.Visible    = true
                     else
                         e.label.Visible = false
-                        e.box.Visible = false
+                        e.box.Visible   = false
                     end
                 else
                     e.label.Visible = false
-                    e.box.Visible = false
+                    e.box.Visible   = false
                 end
             end
         end
     end
 
-    -- discovery + cleanup once per second (~60 frames)
     cleanupTick = cleanupTick + 1
     if cleanupTick >= 60 then
         cleanupTick = 0
@@ -1119,5 +1129,4 @@ while true do
     end
 
     task.wait(0.016)
-
 end
