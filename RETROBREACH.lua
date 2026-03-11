@@ -1029,7 +1029,7 @@ end
 -- ===========================
 -- UI SETUP
 -- ===========================
-UILib.title = "Item ESP"
+UILib.title = "Item ESP by ayothatswild"
 UILib:SetMenuTitle("Item ESP")
 UILib:CenterMenu()
 
@@ -1130,3 +1130,4 @@ while true do
 
     task.wait(0.016)
 end
+
