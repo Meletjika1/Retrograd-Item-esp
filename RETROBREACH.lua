@@ -856,9 +856,21 @@ local CATEGORIES = {
     {
         label    = "Weapons",
         keywords = {
+            -- generic keywords
             "gun", "pistol", "rifle", "shotgun", "smg", "sniper",
             "carbine", "revolver", "machine", "lancer", "blaster",
             "launcher", "cannon", "crossbow", "bow",
+            -- specific models from image 1
+            "desert eagle", "beretta m9", "kriss vector", "makarov",
+            "mp9", "mp443", "five-seven", "micro uzi", "g17", "usp",
+            "beretta 93r", "ump-45", "mp5", "m1911", "mac-10", "uzi",
+            "rsh-12", "saiga-12", "aks-74u", "bizon", "m4 super 90",
+            "usas-12", "double barrel", "hk416", "akm", "famas", "xm8",
+            -- specific models from image 2
+            "mp5sd", "rpk", "ks-23m", "mossberg", "uts-15", "l85a2",
+            "spas-12", "aa-12", "ash-12", "m249", "honey badger",
+            "ak-74", "p90", "f2000", "g36", "mk14 ebr", "scar-l",
+            "m16", "aug", "m4a1", "sg-552", "mp7a1", "as val", "scar-h",
         },
         color    = Color3.fromRGB(255, 220, 0),   -- yellow
         enabled  = true,
@@ -1029,8 +1041,8 @@ end
 -- ===========================
 -- UI SETUP
 -- ===========================
-UILib.title = "Item ESP by ayothatswild"
-UILib:SetMenuTitle("Item ESP by ayothatswild")
+UILib.title = "Item ESP"
+UILib:SetMenuTitle("Item ESP")
 UILib:CenterMenu()
 
 local mainTab    = UILib:Tab("ESP")
@@ -1059,7 +1071,7 @@ for i, cat in ipairs(CATEGORIES) do
 end
 
 UILib:CreateSettingsTab()
-UILib:Notification("Item ESP by ayothatswild loaded! Press F1 to toggle menu.", 6)
+UILib:Notification("Item ESP loaded! Press F1 to toggle menu.", 6)
 
 -- ===========================
 -- MAIN LOOP
@@ -1130,6 +1142,3 @@ while true do
 
     task.wait(0.016)
 end
-
-
-
