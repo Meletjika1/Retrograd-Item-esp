@@ -836,12 +836,12 @@ end
 -- -------------------------------------------------------
 local COLOR_RULES = {
     {
-        keywords = { "keycard", "card", "key card", "pass", "badge", "id" },
-        color = Color3.fromRGB(0, 120, 255),   -- blue
+        keywords = { "keycard", "card", "key card", "pass", "id" },
+        color = Color3.fromRGB(0, 120, 255),
     },
     {
         keywords = { "ammo", "bullet", "magazine", "mag", "clip", "rounds", "shell", "shells" },
-        color = Color3.fromRGB(0, 220, 80),    -- green
+        color = Color3.fromRGB(0, 220, 80),
     },
     {
         keywords = {
@@ -849,7 +849,11 @@ local COLOR_RULES = {
             "carbine", "revolver", "machine", "lancer", "blaster",
             "launcher", "cannon", "crossbow", "bow",
         },
-        color = Color3.fromRGB(255, 220, 0),   -- yellow
+        color = Color3.fromRGB(255, 220, 0),
+    },
+    {
+        keywords = { "grenade", "frag", "flashbang", "smoke", "molotov", "throwable" },
+        color = Color3.fromRGB(160, 0, 255),
     },
 }
 local COLOR_DEFAULT = Color3.fromRGB(255, 255, 255)  -- white for anything unmatched
@@ -1115,4 +1119,5 @@ while true do
     end
 
     task.wait(0.016)
+
 end
