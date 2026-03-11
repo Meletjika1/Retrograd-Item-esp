@@ -1059,7 +1059,7 @@ for i, cat in ipairs(CATEGORIES) do
 end
 
 UILib:CreateSettingsTab()
-UILib:Notification("Item ESP loaded! Press F1 to toggle menu.", 6)
+UILib:Notification("Item ESP by ayothatswild loaded! Press F1 to toggle menu.", 6)
 
 -- ===========================
 -- MAIN LOOP
@@ -1130,5 +1130,6 @@ while true do
 
     task.wait(0.016)
 end
+
 
 
