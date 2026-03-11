@@ -860,13 +860,13 @@ local CATEGORIES = {
             "gun", "pistol", "rifle", "shotgun", "smg", "sniper",
             "carbine", "revolver", "machine", "lancer", "blaster",
             "launcher", "cannon", "crossbow", "bow",
-            -- specific models from image 1
+            -- specific models
             "desert eagle", "beretta m9", "kriss vector", "makarov",
             "mp9", "mp443", "five-seven", "micro uzi", "g17", "usp",
             "beretta 93r", "ump-45", "mp5", "m1911", "mac-10", "uzi",
             "rsh-12", "saiga-12", "aks-74u", "bizon", "m4 super 90",
             "usas-12", "double barrel", "hk416", "akm", "famas", "xm8",
-            -- specific models from image 2
+            -- specific models
             "mp5sd", "rpk", "ks-23m", "mossberg", "uts-15", "l85a2",
             "spas-12", "aa-12", "ash-12", "m249", "honey badger",
             "ak-74", "p90", "f2000", "g36", "mk14 ebr", "scar-l",
@@ -1142,5 +1142,6 @@ while true do
 
     task.wait(0.016)
 end
+
 
 
