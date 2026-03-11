@@ -843,7 +843,7 @@ end
 local CATEGORIES = {
     {
         label    = "Keycards",
-        keywords = { "keycard", "card", "key card", "pass", "badge", "id", "hacking device" },
+        keywords = { "keycard", "card", "key card", "pass", "badge", "id", "device" },
         color    = Color3.fromRGB(0, 120, 255),   -- blue
         enabled  = true,
     },
@@ -1142,4 +1142,5 @@ while true do
 
     task.wait(0.016)
 end
+
 
