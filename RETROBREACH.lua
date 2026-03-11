@@ -1030,7 +1030,7 @@ end
 -- UI SETUP
 -- ===========================
 UILib.title = "Item ESP by ayothatswild"
-UILib:SetMenuTitle("Item ESP")
+UILib:SetMenuTitle("Item ESP by ayothatswild")
 UILib:CenterMenu()
 
 local mainTab    = UILib:Tab("ESP")
@@ -1130,4 +1130,5 @@ while true do
 
     task.wait(0.016)
 end
+
 
