@@ -843,41 +843,49 @@ end
 local CATEGORIES = {
     {
         label    = "Keycards",
-        keywords = { "keycard", "card", "key card", "pass", "badge", "id", "device" },
+        -- multi-word first, then single-word — avoids "id" matching "identity" etc
+        keywords = { "key card", "keycard", "access card", "id card", "badge", "pass", "card" },
         color    = Color3.fromRGB(0, 120, 255),   -- blue
         enabled  = true,
     },
     {
         label    = "Ammo",
-        keywords = { "ammo", "bullet", "magazine", "mag", "clip", "rounds", "shell", "shells" },
+        -- "shell" is last — it's short and could appear in other names
+        keywords = { "magazine", "rounds", "bullet", "ammo", "clip", "mag", "shell" },
         color    = Color3.fromRGB(0, 220, 80),    -- green
         enabled  = true,
     },
     {
         label    = "Weapons",
         keywords = {
-            -- generic keywords
-            "gun", "pistol", "rifle", "shotgun", "smg", "sniper",
-            "carbine", "revolver", "machine", "lancer", "blaster",
-            "launcher", "cannon", "crossbow", "bow",
-            -- specific models
-            "desert eagle", "beretta m9", "kriss vector", "makarov",
-            "mp9", "mp443", "five-seven", "micro uzi", "g17", "usp",
-            "beretta 93r", "ump-45", "mp5", "m1911", "mac-10", "uzi",
-            "rsh-12", "saiga-12", "aks-74u", "bizon", "m4 super 90",
-            "usas-12", "double barrel", "hk416", "akm", "famas", "xm8",
-            -- specific models
-            "mp5sd", "rpk", "ks-23m", "mossberg", "uts-15", "l85a2",
-            "spas-12", "aa-12", "ash-12", "m249", "honey badger",
-            "ak-74", "p90", "f2000", "g36", "mk14 ebr", "scar-l",
-            "m16", "aug", "m4a1", "sg-552", "mp7a1", "as val", "scar-h",
+            -- specific multi-word models first (least ambiguous)
+            "desert eagle", "beretta m9", "beretta 93r", "kriss vector",
+            "micro uzi", "ump-45", "mac-10", "rsh-12", "saiga-12",
+            "aks-74u", "m4 super 90", "usas-12", "double barrel",
+            "honey badger", "mk14 ebr", "scar-l", "scar-h",
+            "as val", "mp7a1", "mp5sd", "ks-23m", "m4a1", "sg-552",
+            "spas-12", "aa-12", "ash-12", "ak-74", "f2000",
+            -- single-word model names
+            "makarov", "mp443", "five-seven", "g17", "usp", "mp9",
+            "m1911", "hk416", "akm", "famas", "xm8", "mp5",
+            "rpk", "mossberg", "uts-15", "l85a2", "m249",
+            "p90", "g36", "m16", "aug", "bizon", "uzi",
+            -- generic keywords last
+            "launcher", "crossbow", "shotgun", "carbine", "revolver",
+            "blaster", "cannon", "sniper", "pistol", "rifle",
+            "lancer", "gun", "smg", "bow",
         },
         color    = Color3.fromRGB(255, 220, 0),   -- yellow
         enabled  = true,
     },
     {
         label    = "Grenades",
-        keywords = { "grenade", "frag", "flashbang", "smoke", "molotov", "throwable" },
+        -- multi-word first, then specific, then broad
+        keywords = {
+            "smoke grenade", "frag grenade", "flash grenade",
+            "incendiary grenade", "stun grenade", "thermite grenade",
+            "flashbang", "molotov", "throwable", "grenade",
+        },
         color    = Color3.fromRGB(160, 0, 255),   -- purple
         enabled  = true,
     },
@@ -930,12 +938,31 @@ local allEspEntries     = {}
 -- -------------------------------------------------------
 -- Helpers
 -- -------------------------------------------------------
+-- Checks if 'kw' appears in 'str' as a whole word (not as part of another word).
+-- Word boundaries: start/end of string, or a non-alphanumeric character on either side.
+local function matchesKeyword(str, kw)
+    local kwLen = #kw
+    local strLen = #str
+    local start = 1
+    while true do
+        local s, e = str:find(kw, start, true)
+        if not s then break end
+        -- check left boundary
+        local leftOk = s == 1 or not str:sub(s-1, s-1):match("[%a%d_]")
+        -- check right boundary
+        local rightOk = e == strLen or not str:sub(e+1, e+1):match("[%a%d_]")
+        if leftOk and rightOk then return true end
+        start = s + 1
+    end
+    return false
+end
+
 local function getCategoryIndex(name)
     local lower = name:lower()
     for i, cat in ipairs(CATEGORIES) do
         if not cat._default then
             for _, kw in ipairs(cat.keywords) do
-                if lower:find(kw, 1, true) then
+                if matchesKeyword(lower, kw) then
                     return i
                 end
             end
@@ -1142,6 +1169,3 @@ while true do
 
     task.wait(0.016)
 end
-
-
-
