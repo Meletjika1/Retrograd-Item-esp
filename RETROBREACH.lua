@@ -851,7 +851,7 @@ local CATEGORIES = {
     {
         label    = "Ammo",
         -- "shell" is last — it's short and could appear in other names
-        keywords = { "magazine", "rounds", "bullet", "ammo", "clip", "mag", "shell" },
+        keywords = { "primary ammo", "secondary ammo", "primammo", "secammo", "magazine", "rounds", "bullet", "ammo", "clip", "mag", "shell" },
         color    = Color3.fromRGB(0, 220, 80),    -- green
         enabled  = true,
     },
@@ -932,6 +932,8 @@ local itemSpawns        = getFolder("ItemSpawns")
 local espEnabled        = false
 local espMaxDistance    = 500
 local ESP_DEFAULT_DISTANCE = 500
+local espRescanEnabled  = true
+local espRescanRate     = 60   -- frames between rescans (60 = ~1s at 0.016 tick)
 local itemEsp           = {}   -- address -> { label, box, part, categoryIndex }
 local allEspEntries     = {}
 
@@ -1090,6 +1092,22 @@ espSection:Slider("Max Distance", 500, 50, 50, 2000, "m", function(newValue)
     espMaxDistance = newValue
 end)
 
+espSection:Toggle("Auto Rescan", true, function(newValue)
+    espRescanEnabled = newValue
+    -- if turning off, hide everything so stale entries don't linger
+    if not newValue then
+        for _, e in pairs(itemEsp) do
+            e.label.Visible = false
+            e.box.Visible   = false
+        end
+    end
+end)
+
+espSection:Slider("Rescan Rate", 60, 1, 10, 600, " frames", function(newValue)
+    espRescanRate = newValue
+    cleanupTick   = 0
+end)
+
 -- Dynamically create one toggle per category
 for i, cat in ipairs(CATEGORIES) do
     catSection:Toggle(cat.label, cat.enabled, function(newValue)
@@ -1162,7 +1180,7 @@ while true do
     end
 
     cleanupTick = cleanupTick + 1
-    if cleanupTick >= 60 then
+    if espRescanEnabled and cleanupTick >= espRescanRate then
         cleanupTick = 0
         updateEsp()
     end
