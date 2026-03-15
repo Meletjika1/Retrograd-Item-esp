@@ -851,7 +851,7 @@ local CATEGORIES = {
     {
         label    = "Ammo",
         -- "shell" is last — it's short and could appear in other names
-        keywords = { "magazine", "rounds", "bullet", "ammo", "clip", "mag", "shell","Primary Ammo", "Secondary Ammo" },
+        keywords = { "magazine", "rounds", "bullet", "ammo", "clip", "mag", "shell" },
         color    = Color3.fromRGB(0, 220, 80),    -- green
         enabled  = true,
     },
