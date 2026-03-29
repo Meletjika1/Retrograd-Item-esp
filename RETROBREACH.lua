@@ -828,49 +828,48 @@ end
 
 -- -------------------------------------------------------
 -- EXACT ITEM REGISTRY
--- Items are matched by exact name (case-insensitive).
--- No keyword guessing — if the name is in the list it gets
--- that category and color. Anything not listed goes to Other.
+-- Matched by exact name (case-insensitive, no guessing).
+-- Anything not in any list shows as Other (white).
 -- -------------------------------------------------------
 
-local WEAPONS = {
-    "hk416", "uzi", "saiga-12", "as val", "bizon", "m4 super 90",
-    "usas-12", "desert eagle", "double barrel", "rsh-12", "ksm-23m",
-    "f2000", "m110", "mp9", "aks-74u", "mac-10", "mp5", "mp7a1",
-    "mossberg", "mk14 ebr", "micro uzi", "scar-h", "scar-l", "sg-552",
-    "beretta m9", "sawed-off", "awp", "ump-45", "m1911", "aug", "ak-74",
-    "honey badger", "m249", "g36", "p90", "vss", "spas-12", "usp",
-    "ash-12", "aa-12", "m4a1", "five-seven", "uts-15", "mp443",
-    "kriss vector", "l85a2", "m16", "m82a1", "psg-1", "mp5sd", "rpk",
-    "g17", "beretta 93r", "akm", "makarov", "famas", "xm8",
+local WEAPON_SET = {
+    ["hk416"]=true, ["uzi"]=true, ["saiga-12"]=true, ["as val"]=true,
+    ["bizon"]=true, ["m4 super 90"]=true, ["usas-12"]=true,
+    ["desert eagle"]=true, ["double barrel"]=true, ["rsh-12"]=true,
+    ["ksm-23m"]=true, ["f2000"]=true, ["m110"]=true, ["mp9"]=true,
+    ["aks-74u"]=true, ["mac-10"]=true, ["mp5"]=true, ["mp7a1"]=true,
+    ["mossberg"]=true, ["mk14 ebr"]=true, ["micro uzi"]=true,
+    ["scar-h"]=true, ["scar-l"]=true, ["sg-552"]=true,
+    ["beretta m9"]=true, ["sawed-off"]=true, ["awp"]=true,
+    ["ump-45"]=true, ["m1911"]=true, ["aug"]=true, ["ak-74"]=true,
+    ["honey badger"]=true, ["m249"]=true, ["g36"]=true, ["p90"]=true,
+    ["vss"]=true, ["spas-12"]=true, ["usp"]=true, ["ash-12"]=true,
+    ["aa-12"]=true, ["m4a1"]=true, ["five-seven"]=true, ["uts-15"]=true,
+    ["mp443"]=true, ["kriss vector"]=true, ["l85a2"]=true, ["m16"]=true,
+    ["m82a1"]=true, ["psg-1"]=true, ["mp5sd"]=true, ["rpk"]=true,
+    ["g17"]=true, ["beretta 93r"]=true, ["akm"]=true, ["makarov"]=true,
+    ["famas"]=true, ["xm8"]=true,
 }
 
-local GRENADES = {
-    "flashbang", "frag grenade", "incendiary grenade", "smoke grenade",
+local GRENADE_SET = {
+    ["flashbang"]=true, ["frag grenade"]=true,
+    ["incendiary grenade"]=true, ["smoke grenade"]=true,
 }
 
-local KEYCARDS = {
-    "zone manager card", "engineer card", "major scientist card",
-    "scientist card", "doctor card", "hacking device", "o5 council card",
-    "facility manager card", "janitor card", "mtf operative card",
-    "guard card", "lieutenant card", "medical specialist card",
-    "containment engineer card", "commander card",
+local KEYCARD_SET = {
+    ["zone manager card"]=true, ["engineer card"]=true,
+    ["major scientist card"]=true, ["scientist card"]=true,
+    ["doctor card"]=true, ["hacking device"]=true,
+    ["o5 council card"]=true, ["facility manager card"]=true,
+    ["janitor card"]=true, ["mtf operative card"]=true,
+    ["guard card"]=true, ["lieutenant card"]=true,
+    ["medical specialist card"]=true, ["containment engineer card"]=true,
+    ["commander card"]=true,
 }
 
-local AMMO = {
-    "primammo", "secammo",
+local AMMO_SET = {
+    ["primammo"]=true, ["secammo"]=true,
 }
-
--- Build lookup tables for O(1) exact matching
-local WEAPON_SET  = {}
-local GRENADE_SET = {}
-local KEYCARD_SET = {}
-local AMMO_SET    = {}
-
-for _, v in ipairs(WEAPONS)   do WEAPON_SET[v]  = true end
-for _, v in ipairs(GRENADES)  do GRENADE_SET[v] = true end
-for _, v in ipairs(KEYCARDS)  do KEYCARD_SET[v] = true end
-for _, v in ipairs(AMMO)      do AMMO_SET[v]    = true end
 
 local CAT_COLOR = {
     weapon  = Color3.fromRGB(255, 220, 0),   -- yellow
@@ -898,57 +897,45 @@ local function resolveCategory(name)
 end
 
 -- -------------------------------------------------------
--- ITEM BLACKLIST
--- Items whose exact name (case-insensitive) are ignored.
+-- Determines if an instance is an actual dropped item
+-- (has a Handle or _Handle child) vs a spawn pad.
+-- Spawn pads have NumberValue children and no handle.
+-- MeshParts named PrimAmmo/SecAmmo are the item directly.
 -- -------------------------------------------------------
-local ITEM_BLACKLIST = {
-    -- "debris", "prop",
-}
+local function getAnchorPart(instance)
+    local cls = instance.ClassName
 
--- -------------------------------------------------------
--- ITEM BLACKLIST
--- Items whose name contains any of these keywords are
--- ignored entirely regardless of category.
--- -------------------------------------------------------
-local ITEM_BLACKLIST = {
-    -- "debris", "prop",
-}
-
--- -------------------------------------------------------
--- END OF CONFIG
--- -------------------------------------------------------
-
-local Players   = game:GetService("Players")
-local workspace = game:GetService("Workspace")
-
-local function getFolder(...)
-    local current = workspace
-    for _, name in ipairs({...}) do
-        local child = current:FindFirstChild(name)
-        if child == nil then
-            notify("ESP", "Could not find folder: " .. tostring(name), 5)
-            return nil
-        end
-        current = child
+    -- MeshParts are the item itself (e.g. SecAmmo, PrimAmmo)
+    if cls == "MeshPart" then
+        return instance
     end
-    return current
+
+    if cls == "Model" then
+        -- Must have a _Handle or Handle to be a real dropped item
+        local handle = instance:FindFirstChild("_Handle")
+            or instance:FindFirstChild("Handle")
+        return handle  -- nil if no handle = spawn pad, skip it
+    end
+
+    -- Parts with NumberValue children are spawn pads — ignore
+    -- Parts that ARE the item (edge case) would need a handle too
+    return nil
 end
 
-local itemSpawns        = getFolder("ItemSpawns")
-local espEnabled        = false
-local espMaxDistance    = 500
-local ESP_DEFAULT_DISTANCE = 500
-local espRescanEnabled  = true
-local espRescanRate     = 60   -- frames between rescans (60 = ~1s at 0.016 tick)
-local itemEsp           = {}   -- address -> { label, box, part, cat }
-local allEspEntries     = {}
+-- -------------------------------------------------------
+-- State
+-- -------------------------------------------------------
+local Players          = game:GetService("Players")
+local espEnabled       = false
+local espMaxDistance   = 500
+local ESP_DEFAULT_DIST = 500
+local espRescanEnabled = true
+local espRescanRate    = 60
+local itemEsp          = {}  -- address -> { label, box, part, cat }
+local allEspEntries    = {}
 
-local function isBlacklisted(name)
-    local lower = name:lower()
-    for _, kw in ipairs(ITEM_BLACKLIST) do
-        if lower == kw then return true end
-    end
-    return false
+local function getItemSpawns()
+    return game:GetService("Workspace"):FindFirstChild("ItemSpawns")
 end
 
 local function removeEntry(address)
@@ -960,23 +947,13 @@ local function removeEntry(address)
     end
 end
 
-local function createEntry(item, address)
-    local name = item.Name or "Unknown"
-    if isBlacklisted(name) then return end
+local function createEntry(instance, address)
+    local name      = instance.Name or ""
+    local anchorPart = getAnchorPart(instance)
+    if anchorPart == nil then return end  -- spawn pad or unrecognised, skip
 
     local cat   = resolveCategory(name)
     local color = CAT_COLOR[cat]
-
-    local part = nil
-    local cls  = item.ClassName
-    if cls == "MeshPart" then
-        part = item
-    elseif cls == "Model" then
-        part = item:FindFirstChildWhichIsA("MeshPart")
-        if part == nil then part = item:FindFirstChildWhichIsA("BasePart") end
-        if part == nil and item.PrimaryPart then part = item.PrimaryPart end
-    end
-    if part == nil then return end
 
     local label = Drawing.new("Text")
     label.Color   = color
@@ -993,8 +970,7 @@ local function createEntry(item, address)
     box.Thickness = 1
     box.Visible   = false
 
-    -- store the source item so the render loop can re-read its name every frame
-    itemEsp[address] = { label = label, box = box, part = part, cat = cat, item = item }
+    itemEsp[address] = { label = label, box = box, part = anchorPart, cat = cat }
 end
 
 local function rebuildEntryList()
@@ -1004,14 +980,10 @@ local function rebuildEntryList()
     end
 end
 
-local function getItemSpawns()
-    local ws = game:GetService("Workspace")
-    return ws:FindFirstChild("ItemSpawns")
-end
-
 local function updateEsp()
     local itemSpawns = getItemSpawns()
     if itemSpawns == nil then return end
+
     if not espEnabled then
         for _, e in pairs(itemEsp) do
             e.label.Visible = false
@@ -1020,16 +992,14 @@ local function updateEsp()
         return
     end
 
-    local children = itemSpawns:GetChildren()
+    local children        = itemSpawns:GetChildren()
     local currentAddresses = {}
-    for _, item in ipairs(children) do
-        local cls = item.ClassName
-        if cls == "Model" or cls == "MeshPart" then
-            local addr = item.Address
-            currentAddresses[addr] = true
-            if not itemEsp[addr] then
-                createEntry(item, addr)
-            end
+
+    for _, instance in ipairs(children) do
+        local addr = instance.Address
+        currentAddresses[addr] = true
+        if not itemEsp[addr] then
+            createEntry(instance, addr)
         end
     end
 
@@ -1069,7 +1039,6 @@ end)
 
 espSection:Toggle("Auto Rescan", true, function(newValue)
     espRescanEnabled = newValue
-    -- if turning off, hide everything so stale entries don't linger
     if not newValue then
         for _, e in pairs(itemEsp) do
             e.label.Visible = false
@@ -1080,10 +1049,8 @@ end)
 
 espSection:Slider("Rescan Rate", 60, 1, 10, 600, " frames", function(newValue)
     espRescanRate = newValue
-    cleanupTick   = 0
 end)
 
--- One toggle per category
 local CAT_LABELS = {
     { key = "weapon",  label = "Weapons"  },
     { key = "grenade", label = "Grenades" },
@@ -1120,29 +1087,14 @@ while true do
     end
 
     if espEnabled and #allEspEntries > 0 then
-        local maxDistSq = (espMaxDistance or ESP_DEFAULT_DISTANCE) * (espMaxDistance or ESP_DEFAULT_DISTANCE)
+        local maxDistSq = (espMaxDistance or ESP_DEFAULT_DIST) * (espMaxDistance or ESP_DEFAULT_DIST)
         local rootPos   = rootPart and rootPart.Position
 
         for i = 1, #allEspEntries do
             local e          = allEspEntries[i]
+            local catEnabled = CAT_ENABLED[e.cat]
             local part       = e.part
             local pos        = part and part.Position
-
-            -- re-read name from the live instance every frame so stale labels
-            -- are impossible — if the instance changed, the label updates immediately
-            local currentName = e.item and e.item.Name or ""
-            if currentName ~= e.label.Text then
-                local newCat   = resolveCategory(currentName)
-                local newColor = CAT_COLOR[newCat]
-                e.cat          = newCat
-                e.label.Text   = currentName
-                e.label.Color  = newColor
-                e.box.Color    = newColor
-            end
-
-            local catEnabled = CAT_ENABLED[e.cat]
-            local part     = e.part
-            local pos      = part and part.Position
 
             if not catEnabled or pos == nil then
                 e.label.Visible = false
