@@ -959,18 +959,35 @@ local function matchesKeyword(str, kw)
     return false
 end
 
+-- Scores every keyword match across all categories and picks the most specific
+-- one (longest matching keyword wins). This prevents a short keyword in an
+-- early category from stealing an item that has a longer, more specific match
+-- in a later category. Ties go to whichever category is listed first.
+-- If nothing matches, falls back to the _default (Other) category.
 local function getCategoryIndex(name)
-    local lower = name:lower()
+    local lower      = name:lower()
+    local bestCatIdx = nil
+    local bestKwLen  = -1
+
     for i, cat in ipairs(CATEGORIES) do
         if not cat._default then
             for _, kw in ipairs(cat.keywords) do
                 if matchesKeyword(lower, kw) then
-                    return i
+                    local kwLen = #kw
+                    if kwLen > bestKwLen then
+                        bestKwLen  = kwLen
+                        bestCatIdx = i
+                    end
                 end
             end
         end
     end
-    -- return index of the _default category
+
+    if bestCatIdx ~= nil then
+        return bestCatIdx
+    end
+
+    -- no keyword matched — fall back to _default (Other)
     for i, cat in ipairs(CATEGORIES) do
         if cat._default then return i end
     end
