@@ -827,76 +827,82 @@ end
 -- ===========================
 
 -- -------------------------------------------------------
--- CATEGORIES
--- This is the main config. Each category has:
---   label    = name shown in the UI toggle
---   keywords = if the item name contains any of these, it belongs to this category
---   color    = Color3 for the ESP label and box
---   enabled  = default on/off state (gets overridden by UI toggle)
---
--- To ADD a new category: copy a block and add it to the list.
--- To REMOVE a category: delete its block.
--- To CHANGE color: edit the Color3.fromRGB line.
--- First matching category wins. Items matching no category
--- use the "Other" category at the bottom.
+-- EXACT ITEM REGISTRY
+-- Items are matched by exact name (case-insensitive).
+-- No keyword guessing — if the name is in the list it gets
+-- that category and color. Anything not listed goes to Other.
 -- -------------------------------------------------------
-local CATEGORIES = {
-    {
-        label    = "Keycards",
-        -- multi-word first, then single-word — avoids "id" matching "identity" etc
-        keywords = { "key card", "keycard", "access card", "id card", "badge", "pass", "card" },
-        color    = Color3.fromRGB(0, 120, 255),   -- blue
-        enabled  = true,
-    },
-    {
-        label    = "Ammo",
-        -- "shell" is last — it's short and could appear in other names
-        keywords = { "primary ammo", "secondary ammo", "primammo", "secammo", "magazine", "rounds", "bullet", "ammo", "clip", "mag", "shell" },
-        color    = Color3.fromRGB(0, 220, 80),    -- green
-        enabled  = true,
-    },
-    {
-        label    = "Weapons",
-        keywords = {
-            -- specific multi-word models first (least ambiguous)
-            "desert eagle", "beretta m9", "beretta 93r", "kriss vector",
-            "micro uzi", "ump-45", "mac-10", "rsh-12", "saiga-12",
-            "aks-74u", "m4 super 90", "usas-12", "double barrel",
-            "honey badger", "mk14 ebr", "scar-l", "scar-h",
-            "as val", "mp7a1", "mp5sd", "ks-23m", "m4a1", "sg-552",
-            "spas-12", "aa-12", "ash-12", "ak-74", "f2000",
-            -- single-word model names
-            "makarov", "mp443", "five-seven", "g17", "usp", "mp9",
-            "m1911", "hk416", "akm", "famas", "xm8", "mp5",
-            "rpk", "mossberg", "uts-15", "l85a2", "m249",
-            "p90", "g36", "m16", "aug", "bizon", "uzi",
-            -- generic keywords last
-            "launcher", "crossbow", "shotgun", "carbine", "revolver",
-            "blaster", "cannon", "sniper", "pistol", "rifle",
-            "lancer", "gun", "smg", "bow",
-        },
-        color    = Color3.fromRGB(255, 220, 0),   -- yellow
-        enabled  = true,
-    },
-    {
-        label    = "Grenades",
-        -- multi-word first, then specific, then broad
-        keywords = {
-            "smoke grenade", "frag grenade", "flash grenade",
-            "incendiary grenade", "stun grenade", "thermite grenade",
-            "flashbang", "molotov", "throwable", "grenade",
-        },
-        color    = Color3.fromRGB(160, 0, 255),   -- purple
-        enabled  = true,
-    },
-    {
-        -- catch-all: items that match no category above
-        label    = "Other",
-        keywords = {},  -- leave empty — this is always the fallback
-        color    = Color3.fromRGB(255, 255, 255), -- white
-        enabled  = true,
-        _default = true,
-    },
+
+local WEAPONS = {
+    "hk416", "uzi", "saiga-12", "as val", "bizon", "m4 super 90",
+    "usas-12", "desert eagle", "double barrel", "rsh-12", "ksm-23m",
+    "f2000", "m110", "mp9", "aks-74u", "mac-10", "mp5", "mp7a1",
+    "mossberg", "mk14 ebr", "micro uzi", "scar-h", "scar-l", "sg-552",
+    "beretta m9", "sawed-off", "awp", "ump-45", "m1911", "aug", "ak-74",
+    "honey badger", "m249", "g36", "p90", "vss", "spas-12", "usp",
+    "ash-12", "aa-12", "m4a1", "five-seven", "uts-15", "mp443",
+    "kriss vector", "l85a2", "m16", "m82a1", "psg-1", "mp5sd", "rpk",
+    "g17", "beretta 93r", "akm", "makarov", "famas", "xm8",
+}
+
+local GRENADES = {
+    "flashbang", "frag grenade", "incendiary grenade", "smoke grenade",
+}
+
+local KEYCARDS = {
+    "zone manager card", "engineer card", "major scientist card",
+    "scientist card", "doctor card", "hacking device", "o5 council card",
+    "facility manager card", "janitor card", "mtf operative card",
+    "guard card", "lieutenant card", "medical specialist card",
+    "containment engineer card", "commander card",
+}
+
+local AMMO = {
+    "primammo", "secammo",
+}
+
+-- Build lookup tables for O(1) exact matching
+local WEAPON_SET  = {}
+local GRENADE_SET = {}
+local KEYCARD_SET = {}
+local AMMO_SET    = {}
+
+for _, v in ipairs(WEAPONS)   do WEAPON_SET[v]  = true end
+for _, v in ipairs(GRENADES)  do GRENADE_SET[v] = true end
+for _, v in ipairs(KEYCARDS)  do KEYCARD_SET[v] = true end
+for _, v in ipairs(AMMO)      do AMMO_SET[v]    = true end
+
+local CAT_COLOR = {
+    weapon  = Color3.fromRGB(255, 220, 0),   -- yellow
+    grenade = Color3.fromRGB(160, 0,   255), -- purple
+    keycard = Color3.fromRGB(0,   120, 255), -- blue
+    ammo    = Color3.fromRGB(0,   220, 80),  -- green
+    other   = Color3.fromRGB(255, 255, 255), -- white
+}
+
+local CAT_ENABLED = {
+    weapon  = true,
+    grenade = true,
+    keycard = true,
+    ammo    = true,
+    other   = true,
+}
+
+local function resolveCategory(name)
+    local lower = name:lower()
+    if WEAPON_SET[lower]  then return "weapon"  end
+    if GRENADE_SET[lower] then return "grenade" end
+    if KEYCARD_SET[lower] then return "keycard" end
+    if AMMO_SET[lower]    then return "ammo"    end
+    return "other"
+end
+
+-- -------------------------------------------------------
+-- ITEM BLACKLIST
+-- Items whose exact name (case-insensitive) are ignored.
+-- -------------------------------------------------------
+local ITEM_BLACKLIST = {
+    -- "debris", "prop",
 }
 
 -- -------------------------------------------------------
@@ -934,70 +940,13 @@ local espMaxDistance    = 500
 local ESP_DEFAULT_DISTANCE = 500
 local espRescanEnabled  = true
 local espRescanRate     = 60   -- frames between rescans (60 = ~1s at 0.016 tick)
-local itemEsp           = {}   -- address -> { label, box, part, categoryIndex }
+local itemEsp           = {}   -- address -> { label, box, part, cat }
 local allEspEntries     = {}
-
--- -------------------------------------------------------
--- Helpers
--- -------------------------------------------------------
--- Checks if 'kw' appears in 'str' as a whole word (not as part of another word).
--- Word boundaries: start/end of string, or a non-alphanumeric character on either side.
-local function matchesKeyword(str, kw)
-    local kwLen = #kw
-    local strLen = #str
-    local start = 1
-    while true do
-        local s, e = str:find(kw, start, true)
-        if not s then break end
-        -- check left boundary
-        local leftOk = s == 1 or not str:sub(s-1, s-1):match("[%a%d_]")
-        -- check right boundary
-        local rightOk = e == strLen or not str:sub(e+1, e+1):match("[%a%d_]")
-        if leftOk and rightOk then return true end
-        start = s + 1
-    end
-    return false
-end
-
--- Scores every keyword match across all categories and picks the most specific
--- one (longest matching keyword wins). This prevents a short keyword in an
--- early category from stealing an item that has a longer, more specific match
--- in a later category. Ties go to whichever category is listed first.
--- If nothing matches, falls back to the _default (Other) category.
-local function getCategoryIndex(name)
-    local lower      = name:lower()
-    local bestCatIdx = nil
-    local bestKwLen  = -1
-
-    for i, cat in ipairs(CATEGORIES) do
-        if not cat._default then
-            for _, kw in ipairs(cat.keywords) do
-                if matchesKeyword(lower, kw) then
-                    local kwLen = #kw
-                    if kwLen > bestKwLen then
-                        bestKwLen  = kwLen
-                        bestCatIdx = i
-                    end
-                end
-            end
-        end
-    end
-
-    if bestCatIdx ~= nil then
-        return bestCatIdx
-    end
-
-    -- no keyword matched — fall back to _default (Other)
-    for i, cat in ipairs(CATEGORIES) do
-        if cat._default then return i end
-    end
-    return 1
-end
 
 local function isBlacklisted(name)
     local lower = name:lower()
     for _, kw in ipairs(ITEM_BLACKLIST) do
-        if lower:find(kw, 1, true) then return true end
+        if lower == kw then return true end
     end
     return false
 end
@@ -1013,8 +962,10 @@ end
 
 local function createEntry(item, address)
     local name = item.Name or "Unknown"
-    local catIdx = getCategoryIndex(name)
-    local color = CATEGORIES[catIdx].color
+    if isBlacklisted(name) then return end
+
+    local cat   = resolveCategory(name)
+    local color = CAT_COLOR[cat]
 
     local part = nil
     local cls  = item.ClassName
@@ -1042,7 +993,8 @@ local function createEntry(item, address)
     box.Thickness = 1
     box.Visible   = false
 
-    itemEsp[address] = { label = label, box = box, part = part, catIdx = catIdx }
+    -- store the source item so the render loop can re-read its name every frame
+    itemEsp[address] = { label = label, box = box, part = part, cat = cat, item = item }
 end
 
 local function rebuildEntryList()
@@ -1052,7 +1004,13 @@ local function rebuildEntryList()
     end
 end
 
+local function getItemSpawns()
+    local ws = game:GetService("Workspace")
+    return ws:FindFirstChild("ItemSpawns")
+end
+
 local function updateEsp()
+    local itemSpawns = getItemSpawns()
     if itemSpawns == nil then return end
     if not espEnabled then
         for _, e in pairs(itemEsp) do
@@ -1069,7 +1027,7 @@ local function updateEsp()
         if cls == "Model" or cls == "MeshPart" then
             local addr = item.Address
             currentAddresses[addr] = true
-            if not itemEsp[addr] and not isBlacklisted(item.Name or "") then
+            if not itemEsp[addr] then
                 createEntry(item, addr)
             end
         end
@@ -1125,10 +1083,18 @@ espSection:Slider("Rescan Rate", 60, 1, 10, 600, " frames", function(newValue)
     cleanupTick   = 0
 end)
 
--- Dynamically create one toggle per category
-for i, cat in ipairs(CATEGORIES) do
-    catSection:Toggle(cat.label, cat.enabled, function(newValue)
-        CATEGORIES[i].enabled = newValue
+-- One toggle per category
+local CAT_LABELS = {
+    { key = "weapon",  label = "Weapons"  },
+    { key = "grenade", label = "Grenades" },
+    { key = "keycard", label = "Keycards" },
+    { key = "ammo",    label = "Ammo"     },
+    { key = "other",   label = "Other"    },
+}
+for _, entry in ipairs(CAT_LABELS) do
+    local key = entry.key
+    catSection:Toggle(entry.label, CAT_ENABLED[key], function(newValue)
+        CAT_ENABLED[key] = newValue
     end)
 end
 
@@ -1158,8 +1124,23 @@ while true do
         local rootPos   = rootPart and rootPart.Position
 
         for i = 1, #allEspEntries do
-            local e        = allEspEntries[i]
-            local catEnabled = CATEGORIES[e.catIdx] and CATEGORIES[e.catIdx].enabled
+            local e          = allEspEntries[i]
+            local part       = e.part
+            local pos        = part and part.Position
+
+            -- re-read name from the live instance every frame so stale labels
+            -- are impossible — if the instance changed, the label updates immediately
+            local currentName = e.item and e.item.Name or ""
+            if currentName ~= e.label.Text then
+                local newCat   = resolveCategory(currentName)
+                local newColor = CAT_COLOR[newCat]
+                e.cat          = newCat
+                e.label.Text   = currentName
+                e.label.Color  = newColor
+                e.box.Color    = newColor
+            end
+
+            local catEnabled = CAT_ENABLED[e.cat]
             local part     = e.part
             local pos      = part and part.Position
 
