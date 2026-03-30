@@ -929,8 +929,6 @@ local Players          = game:GetService("Players")
 local espEnabled       = false
 local espMaxDistance   = 500
 local ESP_DEFAULT_DIST = 500
-local espRescanEnabled = true
-local espRescanRate    = 60
 local itemEsp          = {}  -- address -> { label, box, part, cat }
 local allEspEntries    = {}
 
@@ -1037,20 +1035,6 @@ espSection:Slider("Max Distance", 500, 50, 50, 2000, "m", function(newValue)
     espMaxDistance = newValue
 end)
 
-espSection:Toggle("Auto Rescan", true, function(newValue)
-    espRescanEnabled = newValue
-    if not newValue then
-        for _, e in pairs(itemEsp) do
-            e.label.Visible = false
-            e.box.Visible   = false
-        end
-    end
-end)
-
-espSection:Slider("Rescan Rate", 60, 1, 10, 600, " frames", function(newValue)
-    espRescanRate = newValue
-end)
-
 local CAT_LABELS = {
     { key = "weapon",  label = "Weapons"  },
     { key = "grenade", label = "Grenades" },
@@ -1074,11 +1058,15 @@ UILib:Notification("Item ESP loaded! Press F1 to toggle menu.", 6)
 local character      = Players.LocalPlayer and Players.LocalPlayer.Character
 local rootPart       = character and character:FindFirstChild("HumanoidRootPart")
 local rootUpdateTick = 0
-local cleanupTick    = 0
+
+-- Discovery runs EVERY frame so inventory swaps and body drops are caught
+-- immediately. GetChildren + address diff is cheap — far cheaper than missing
+-- an item because the rescan timer hasn't fired yet.
 
 while true do
     UILib:Step()
 
+    -- Refresh player root every 60 frames
     rootUpdateTick = rootUpdateTick + 1
     if rootUpdateTick >= 60 then
         rootUpdateTick = 0
@@ -1086,6 +1074,13 @@ while true do
         rootPart  = character and character:FindFirstChild("HumanoidRootPart")
     end
 
+    -- Always run discovery/cleanup so swapped or dropped items are tracked
+    -- instantly rather than waiting for a rescan interval
+    if espEnabled then
+        updateEsp()
+    end
+
+    -- Render pass
     if espEnabled and #allEspEntries > 0 then
         local maxDistSq = (espMaxDistance or ESP_DEFAULT_DIST) * (espMaxDistance or ESP_DEFAULT_DIST)
         local rootPos   = rootPart and rootPart.Position
@@ -1127,12 +1122,6 @@ while true do
                 end
             end
         end
-    end
-
-    cleanupTick = cleanupTick + 1
-    if espRescanEnabled and cleanupTick >= espRescanRate then
-        cleanupTick = 0
-        updateEsp()
     end
 
     task.wait(0.016)
