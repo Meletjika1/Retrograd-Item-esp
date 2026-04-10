@@ -12,19 +12,10 @@ local CONFIG = {
     scanInterval = 2,
 }
 
-local espObjects   = {}
-local allEntries   = {}
+local espObjects = {}
+local allEntries = {}
 local lastScanTime = 0
-
-local function getEnemiesFolder()
-    return WorkspaceService:FindFirstChild("Enemies")
-end
-
-local function getPlayerRootPos()
-    local char = LocalPlayer.Character
-    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-    return hrp and hrp.Position
-end
+local maxDistSq = CONFIG.maxDistance * CONFIG.maxDistance
 
 local function lerpColor(a, b, t)
     return Color3.new(
@@ -82,7 +73,6 @@ local function createEntry(npc, address)
     nameLabel.Visible = false
 
     local hpLabel = Drawing.new("Text")
-    hpLabel.Text    = ""
     hpLabel.Color   = CONFIG.textColor
     hpLabel.Outline = true
     hpLabel.Center  = true
@@ -100,14 +90,16 @@ local function createEntry(npc, address)
     hpBar.Visible = false
 
     espObjects[address] = {
-        box       = box,
-        nameLabel = nameLabel,
-        hpLabel   = hpLabel,
-        hpBar     = hpBar,
-        hpBarBg   = hpBarBg,
-        npc       = npc,
-        hrp       = hrp,
-        humanoid  = humanoid,
+        box         = box,
+        nameLabel   = nameLabel,
+        hpLabel     = hpLabel,
+        hpBar       = hpBar,
+        hpBarBg     = hpBarBg,
+        npc         = npc,
+        hrp         = hrp,
+        humanoid    = humanoid,
+        lastHpText  = "",
+        dead        = false,
     }
 end
 
@@ -119,32 +111,123 @@ local function rebuildEntryList()
 end
 
 local function scanNPCs()
+    -- prune dead entries
     for address, entry in pairs(espObjects) do
-        if not entry.npc or not entry.npc.Parent then
+        if entry.dead or not entry.npc or not entry.npc.Parent then
             removeEntry(address)
         end
     end
-
-    local folder = getEnemiesFolder()
+    -- discover new ones
+    local folder = WorkspaceService:FindFirstChild("Enemies")
     if folder then
         for _, npc in ipairs(folder:GetChildren()) do
-            if npc.ClassName == "Model" then
-                local addr = npc.Address
-                if not espObjects[addr] then
-                    createEntry(npc, addr)
-                end
+            if npc.ClassName == "Model" and not espObjects[npc.Address] then
+                createEntry(npc, npc.Address)
             end
         end
     end
-
     rebuildEntryList()
+end
+
+local function renderEntry(e, playerPos)
+    local hrp      = e.hrp
+    local npc      = e.npc
+    local humanoid = e.humanoid
+
+    -- strict parent checks — no pcall needed if we check Parent first
+    if not npc.Parent or not hrp.Parent or not humanoid.Parent then
+        e.dead = true
+        hideEntry(e)
+        return
+    end
+
+    -- humanoid health check — dead NPCs can be removed
+    if humanoid.Health <= 0 then
+        e.dead = true
+        hideEntry(e)
+        return
+    end
+
+    local pos = hrp.Position
+
+    -- distance cull
+    if playerPos then
+        local dx = pos.X - playerPos.X
+        local dy = pos.Y - playerPos.Y
+        local dz = pos.Z - playerPos.Z
+        if dx*dx + dy*dy + dz*dz > maxDistSq then
+            hideEntry(e)
+            return
+        end
+    end
+
+    -- on-screen gate: root first, cheapest rejection
+    local rootPos, onScreen = WorldToScreen(pos)
+    if not onScreen then
+        hideEntry(e)
+        return
+    end
+
+    -- head and feet only if root is confirmed on screen
+    local headPos, headOn = WorldToScreen(Vector3.new(pos.X, pos.Y + 3.5, pos.Z))
+    local feetPos         = WorldToScreen(Vector3.new(pos.X, pos.Y - 3.5, pos.Z))
+
+    if not headOn or not headPos or not feetPos then
+        hideEntry(e)
+        return
+    end
+
+    local boxH = feetPos.Y - headPos.Y
+    if boxH <= 2 then
+        hideEntry(e)
+        return
+    end
+
+    local boxW = boxH / 1.8
+    local boxX = headPos.X - boxW / 2
+    local boxY = headPos.Y
+
+    e.box.Position = Vector2.new(boxX, boxY)
+    e.box.Size     = Vector2.new(boxW, boxH)
+    e.box.Visible  = true
+
+    e.nameLabel.Position = Vector2.new(headPos.X, boxY - 16)
+    e.nameLabel.Visible  = true
+
+    local hp     = humanoid.Health
+    local maxHp  = humanoid.MaxHealth
+    local pct    = maxHp > 0 and math.clamp(hp / maxHp, 0, 1) or 0
+    local hpCol  = hpColor(pct)
+    local hpFloor = math.floor(hp)
+    local hpText = hpFloor .. "/" .. math.floor(maxHp)
+
+    if hpText ~= e.lastHpText then
+        e.hpLabel.Text = hpText
+        e.lastHpText   = hpText
+    end
+    e.hpLabel.Color    = hpCol
+    e.hpLabel.Position = Vector2.new(headPos.X, feetPos.Y + 2)
+    e.hpLabel.Visible  = true
+
+    local barW  = 4
+    local barX  = boxX + boxW + 2
+    local fillH = boxH * pct
+
+    e.hpBarBg.Position = Vector2.new(barX, boxY)
+    e.hpBarBg.Size     = Vector2.new(barW, boxH)
+    e.hpBarBg.Visible  = true
+
+    e.hpBar.Position = Vector2.new(barX, boxY + boxH - fillH)
+    e.hpBar.Size     = Vector2.new(barW, math.max(fillH, 0))
+    e.hpBar.Color    = hpCol
+    e.hpBar.Visible  = fillH > 0
 end
 
 -- ===========================
 -- MAIN LOOP
 -- ===========================
 while true do
-    task.wait()
+    task.wait(0.016)  -- cap at ~60fps, prevents loop running unconstrained
 
     local now = tick()
     if now - lastScanTime > CONFIG.scanInterval then
@@ -152,93 +235,20 @@ while true do
         lastScanTime = now
     end
 
-    local playerPos = getPlayerRootPos()
-    local maxDist   = CONFIG.maxDistance
+    local playerPos = nil
+    local char = LocalPlayer.Character
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then playerPos = hrp.Position end
+    end
 
-    for _, e in ipairs(allEntries) do
-        local npc      = e.npc
-        local hrp      = e.hrp
-        local humanoid = e.humanoid
-
-        -- Guard: NPC or HRP destroyed/deparented
-        if not (npc and npc.Parent and hrp and hrp.Parent) then
+    for i = 1, #allEntries do
+        -- wrap each NPC in pcall so one crash can't freeze the whole loop
+        local e = allEntries[i]
+        local ok, err = pcall(renderEntry, e, playerPos)
+        if not ok then
+            e.dead = true
             hideEntry(e)
-        else
-            -- Guard: Position can be nil if part is mid-destruction
-            local ok, pos = pcall(function() return hrp.Position end)
-            if not ok or pos == nil then
-                hideEntry(e)
-            else
-                -- Distance check
-                local inRange = true
-                if maxDist > 0 and playerPos then
-                    local dx = pos.X - playerPos.X
-                    local dy = pos.Y - playerPos.Y
-                    local dz = pos.Z - playerPos.Z
-                    if dx*dx + dy*dy + dz*dz > maxDist * maxDist then
-                        inRange = false
-                    end
-                end
-
-                if not inRange then
-                    hideEntry(e)
-                else
-                    local headPos, headOn = WorldToScreen(Vector3.new(pos.X, pos.Y + 3.5, pos.Z))
-                    local feetPos, feetOn = WorldToScreen(Vector3.new(pos.X, pos.Y - 3.5, pos.Z))
-
-                    if not (headPos and feetPos and headOn) then
-                        hideEntry(e)
-                    else
-                        local boxH = feetPos.Y - headPos.Y
-
-                        if boxH <= 2 then
-                            hideEntry(e)
-                        else
-                            local boxW = boxH / 1.8
-                            local boxX = headPos.X - boxW / 2
-                            local boxY = headPos.Y
-
-                            e.box.Position = Vector2.new(boxX, boxY)
-                            e.box.Size     = Vector2.new(boxW, boxH)
-                            e.box.Visible  = true
-
-                            e.nameLabel.Text     = npc.Name
-                            e.nameLabel.Position = Vector2.new(headPos.X, boxY - 16)
-                            e.nameLabel.Visible  = true
-
-                            -- HP — pcall in case humanoid is also mid-destruction
-                            local hpOk, hp, maxHp = pcall(function()
-                                return humanoid.Health, humanoid.MaxHealth
-                            end)
-                            if not hpOk then
-                                hp    = 0
-                                maxHp = 1
-                            end
-                            local pct   = (maxHp > 0) and math.clamp(hp / maxHp, 0, 1) or 0
-                            local hpCol = hpColor(pct)
-
-                            e.hpLabel.Text     = math.floor(hp) .. " / " .. math.floor(maxHp)
-                            e.hpLabel.Color    = hpCol
-                            e.hpLabel.Position = Vector2.new(headPos.X, feetPos.Y + 2)
-                            e.hpLabel.Visible  = true
-
-                            local barW      = 4
-                            local barX      = boxX + boxW + 2
-                            local barTotalH = boxH
-                            local fillH     = barTotalH * pct
-
-                            e.hpBarBg.Position = Vector2.new(barX, boxY)
-                            e.hpBarBg.Size     = Vector2.new(barW, barTotalH)
-                            e.hpBarBg.Visible  = true
-
-                            e.hpBar.Position = Vector2.new(barX, boxY + barTotalH - fillH)
-                            e.hpBar.Size     = Vector2.new(barW, math.max(fillH, 0))
-                            e.hpBar.Color    = hpCol
-                            e.hpBar.Visible  = fillH > 0
-                        end
-                    end
-                end
-            end
         end
     end
 end
