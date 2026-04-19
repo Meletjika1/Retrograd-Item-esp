@@ -1,6 +1,3 @@
---- ===========================
--- UI LIBRARY (inline)
--- ===========================
 UILib = {
     _font_face = Drawing.Fonts.UI,
     _font_size = 13,
@@ -394,7 +391,7 @@ do
                     self:_SetOpacityStartsWith('dropdown_', clamp(dropdownFade, 0, 1))
                 end
 
-                -- init scroll offset
+                -- the scroll offset
                 if dropdown._scroll == nil then dropdown._scroll = 0 end
 
                 local maxVisible = 8
@@ -402,7 +399,7 @@ do
                 local totalChoices = #dropdown.choices
                 local maxScroll = math.max(0, totalChoices - maxVisible)
 
-                -- scroll with mouse wheel (simulate via up/down keys)
+                -- scroll with mouse wheel or ise page up/down
                 if self:_IsMouseWithinBounds(dropdown.position, Vector2.new(dropdown.width, maxVisible * itemHeight + self._padding * 2)) then
                     if self:_IsKeyPressed('up') then
                         dropdown._scroll = math.max(0, dropdown._scroll - 1)
@@ -422,11 +419,11 @@ do
                 local dropdownOrigin = dropdown.position
                 local visibleHeight = math.min(totalChoices, maxVisible) * itemHeight + self._padding * 2
 
-                -- draw background first so clipping ref is clear
+                -- draw bg
                 self:_Draw('dropdown_crust', 'rect', self._theming.crust, 100, dropdownOrigin, Vector2.new(dropdown.width, visibleHeight), false)
                 self:_Draw('dropdown_body', 'rect', self._theming.surface0, 101, dropdownOrigin + Vector2.new(1, 1), Vector2.new(dropdown.width - 2, visibleHeight - 2), true)
 
-                -- scrollbar
+                -- the scroll
                 if totalChoices > maxVisible then
                     local scrollbarTrackHeight = visibleHeight - 4
                     local scrollbarThumbHeight = math.max(20, scrollbarTrackHeight * (maxVisible / totalChoices))
@@ -436,7 +433,7 @@ do
                     self:_Draw('dropdown_scrollbar_thumb', 'rect', self._theming.accent, 103, Vector2.new(scrollbarX, dropdownOrigin.y + 2 + scrollbarThumbY), Vector2.new(4, scrollbarThumbHeight), true)
                 end
 
-                -- hide choices that are outside the visible range
+                -- if choice is outside visible range js hide it
                 for i = 1, totalChoices do
                     local visibleIndex = i - dropdown._scroll
                     local choice = dropdown.choices[i]
@@ -816,7 +813,7 @@ do
 end
 
 -- ===========================
--- ESP SCRIPT
+-- ESP SCRIPT (specific option for gun esp does jack shit but I cant be asked to remove it soall guns are yellow instead)
 -- ===========================
 local itemEspEnabled = false
 local gunEspEnabled = false
@@ -960,7 +957,7 @@ local function updateEspTable(espTable, folder, color, enabled, useFilter)
 end
 
 -- ===========================
--- UI SETUP
+-- UI SETUP (TY NULARE)
 -- ===========================
 UILib:SetMenuTitle("Isle Script")
 UILib:CenterMenu()
@@ -1018,7 +1015,7 @@ UILib:CreateSettingsTab()
 UILib:Notification("Isle Script loaded! Press F1 to toggle menu.", 6)
 
 -- ===========================
--- MAIN LOOP
+-- MAIN LOOP (TS SUCKS SO MUCH DICK BUT IT WORKS)
 -- ===========================
 local cleanupTick = 0
 local allEspEntries = {}
