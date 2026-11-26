@@ -37,7 +37,7 @@ local CHEMS = {
     hal      = "Haloperidol",
     ama      = "Amatoxin",
     sickness = "Pox",
-    tri      = "Tricordazine",
+    tric      = "Tricordazine",
     per      = "Peridaxon",
 }
 local CHEM_ORDER = { "bic", "syn", "mep", "hyd", "hal", "ama", "sickness", "tri", "per" }
