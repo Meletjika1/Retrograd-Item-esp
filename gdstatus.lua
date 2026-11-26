@@ -37,10 +37,10 @@ local CHEMS = {
     hal      = "Haloperidol",
     ama      = "Amatoxin",
     sickness = "Pox",
-    tric      = "Tricordazine",
+    tric     = "Tricordazine",
     per      = "Peridaxon",
 }
-local CHEM_ORDER = { "bic", "syn", "mep", "hyd", "hal", "ama", "sickness", "tri", "per" }
+local CHEM_ORDER = { "bic", "syn", "mep", "hyd", "hal", "ama", "sickness", "tric", "per" }
 local CHEMS_FOLDER = "chems"
 
 -- ===========================
